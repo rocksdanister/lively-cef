@@ -30,23 +30,16 @@ namespace cefsharptest
             }
             if(cont == false)
             {
-                MessageBox.Show("Lively is not running, Exiting!", "Cef: Error");
+                MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(1); //msgloop not ready 
             }
 
             //deleting old CEF logfile.
-            var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "\\debug.log");
-            if (File.Exists(logPath))
+            try
             {
-                try
-                {
-                    File.Delete(logPath);
-                }
-                catch (Exception e)
-                {
-                    Debug.WriteLine(e.ToString());
-                }
+                File.Delete(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log"));
             }
+            catch { }
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

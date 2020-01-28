@@ -23,23 +23,26 @@ using CSCore.Streams.Effects;
 using CSCore.CoreAudioAPI;
 using System.Runtime.InteropServices;
 using System.Threading;
+using CefSharp.Example.Handlers;
+using cefsharptest.Widgets;
 
 namespace cefsharptest
 {
     public partial class Form1 : Form
     {
+        private static Form mainForm;
         private enum LinkType
         {
             shadertoy,
             online,
-            local
+            local,
+            deviantart
         }
         private LinkType linkType;
         private string originalUrl; 
 
         private bool enableCSCore = false;
-        //private bool cefInitialized = false;
-        public ChromiumWebBrowser chromeBrowser;
+        public static string htmlPath = null;
         private string path = null;
         string[] args = Environment.GetCommandLineArgs();
 
@@ -51,6 +54,7 @@ namespace cefsharptest
         private LineSpectrum _lineSpectrum;
         //private VoicePrint3DSpectrum _voicePrint3DSpectrum;
         System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+        public static ChromiumWebBrowser chromeBrowser;
 
         /// <summary>
         /// std I/O redirect, used to communicate with lively. 
@@ -64,18 +68,50 @@ namespace cefsharptest
                 while (true) // Loop runs only once per line received
                 {
                     string text = await Console.In.ReadLineAsync();
-                    if (String.Equals(text,"Terminate",StringComparison.OrdinalIgnoreCase))//text == "Terminate")
+                    if (String.Equals(text,"Terminate",StringComparison.OrdinalIgnoreCase))
                     {                      
                         break;
+                    }
+                    else if(String.Equals(text, "Reload", StringComparison.OrdinalIgnoreCase))
+                    {
+                        chromeBrowser.Reload(true);
+                    }
+                    else if (Contains(text, "lively-customise", StringComparison.OrdinalIgnoreCase))
+                    {
+                        mainForm.Invoke((MethodInvoker)delegate () {
+                            SettingsWidget settingsWidget = new SettingsWidget(text);
+                            settingsWidget.Show();
+                        });
                     }
                 }
             });
             Application.Exit();
         }
 
+        /// <summary>
+        /// String Contains method with StringComparison property.
+        /// </summary>
+        /// <param name="str"></param>
+        /// <param name="substring"></param>
+        /// <param name="comp"></param>
+        /// <returns></returns>
+        public static bool Contains(String str, String substring,
+                                    StringComparison comp)
+        {
+            if (substring == null)
+                throw new ArgumentNullException("substring",
+                                             "substring cannot be null.");
+            else if (!Enum.IsDefined(typeof(StringComparison), comp))
+                throw new ArgumentException("comp is not a member of StringComparison",
+                                         "comp");
+
+            return str.IndexOf(substring, comp) >= 0;
+        }
+
         public Form1()
         {          
             InitializeComponent();
+            mainForm = this;
             ListenToParent(); //stdin listen
 
             if ( args.Length == 3 ) //args[0] = application.exe
@@ -117,14 +153,12 @@ namespace cefsharptest
                     Environment.Exit(1);    
             }
             path = args[1];
+            htmlPath = path;
             originalUrl = args[1];
 
             if (enableCSCore)
             {
-                CSCoreInit(); //audio analyser
-                timer.Interval = 33; //30fps
-                timer.Tick += Timer_Tick1;
-                timer.Start();
+                CSCoreInit(); //audio analyser              
             }
 
             if (args[2] == "local")
@@ -140,22 +174,49 @@ namespace cefsharptest
                 else
                     linkType = LinkType.online;
             }
+            else if( args[2] == "deviantart")
+            {
+                linkType = LinkType.deviantart;
 
-            InitializeChromium(); 
+                this.FormBorderStyle = FormBorderStyle.Sizable;
+                this.WindowState = FormWindowState.Maximized;
+                //this.SizeGripStyle = SizeGripStyle.Show;
+                this.ShowInTaskbar = true;
+                this.MaximizeBox = true;
+                this.MinimizeBox = true;
+            }
+
+            try
+            {
+                WidgetData.LoadLivelyProperties(Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json"));
+            }
+            catch
+            { 
+                //can be non-customisable wp, file missing error:- ignore.
+            } 
+
+            InitializeChromium();
+            //timer, audio sends audio data etc
+            timer.Interval = 33; //30fps
+            timer.Tick += Timer_Tick1;
+            timer.Start();
         }
 
         #region audio_data_passing
-        private void Timer_Tick1(object sender, EventArgs e)
+        private async void Timer_Tick1(object sender, EventArgs e)
         {
             try
             {
                 if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                 {
-                    //ExecuteScriptAsync("livelyAudioListener", _lineSpectrum.livelyGetSystemAudioSpectrum());
-                    var fftBuffer = new float[(int)fftSize];
-                    //spectrumProvider.GetFftData(fftBuffer, this);
-                    fftBuffer = _lineSpectrum.livelyGetSystemAudioSpectrum();
-                    ExecuteScriptAsync("livelyAudioListener", fftBuffer);
+                    if (enableCSCore)
+                    {
+                        //ExecuteScriptAsync("livelyAudioListener", _lineSpectrum.livelyGetSystemAudioSpectrum());
+                        var fftBuffer = new float[(int)fftSize];
+                        //spectrumProvider.GetFftData(fftBuffer, this);
+                        fftBuffer = _lineSpectrum.livelyGetSystemAudioSpectrum();
+                        ExecuteScriptAsync("livelyAudioListener", fftBuffer);
+                    }
                 }
             }
             catch (Exception ex)
@@ -223,20 +284,29 @@ namespace cefsharptest
                 {
                     SchemeName = "localfolder",
                     //DomainName = "html",//Path.GetFileName(path),//"cefsharp",
-                    SchemeHandlerFactory = new FolderSchemeHandlerFactory(
+                    SchemeHandlerFactory = new FolderSchemeHandlerFactory
+                    (
                        rootFolder: Path.GetDirectoryName(path),
                        hostName: Path.GetFileName(path),
                            defaultPage: Path.GetFileName(path)//"index.html" // will default to index.html
-                )
+                    )
+
+                    
                 });
                 path = "localfolder://" + Path.GetFileName(path);
             }
    
             //ref: https://magpcss.org/ceforum/apidocs3/projects/(default)/_cef_browser_settings_t.html#universal_access_from_file_urls
             //settings.CefCommandLineArgs.Add("allow-universal-access-from-files", "1"); //UNSAFE, Testing Only!
-            settings.CefCommandLineArgs.Add("--mute-audio", "1"); 
+            settings.CefCommandLineArgs.Add("--mute-audio", "1");
 
+            if (linkType == LinkType.deviantart)
+            {
+                //System.IO.Directory.CreateDirectory(AppDomain.CurrentDomain.BaseDirectory + "//LivelyCefCache");
+                settings.CachePath = AppDomain.CurrentDomain.BaseDirectory + "//LivelyCefCache";
+            }
             Cef.Initialize(settings);
+
             if (linkType == LinkType.shadertoy)
             {
                 chromeBrowser = new ChromiumWebBrowser(String.Empty);
@@ -244,12 +314,22 @@ namespace cefsharptest
                 chromeBrowser.LoadHtml(path);
             }
             else
+            {
                 chromeBrowser = new ChromiumWebBrowser(path);
+                if (linkType == LinkType.deviantart)
+                {
+                    chromeBrowser.DownloadHandler = new DownloadHandler();
+                }
+
+            }
 
             this.Controls.Add(chromeBrowser);
-            chromeBrowser.Dock = DockStyle.Fill;
+            //chromeBrowser.Anchor = AnchorStyles.Top;
+            //chromeBrowser.Location = new Point(0, 0);
+            chromeBrowser.Dock = DockStyle.Fill;  //Top: Hide scrollbars?
 
             chromeBrowser.IsBrowserInitializedChanged += ChromeBrowser_IsBrowserInitializedChanged1;
+            chromeBrowser.LoadingStateChanged += ChromeBrowser_LoadingStateChanged;
             chromeBrowser.LoadError += ChromeBrowser_LoadError;
             /*
             //binding test
@@ -258,6 +338,38 @@ namespace cefsharptest
                 chromeBrowser.JavascriptObjectRepository.Register("boundAsync", this._lineSpectrum, true);
             }
             */
+        }
+
+        private void ChromeBrowser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
+        {
+            if (WidgetData.liveyPropertiesData == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                {
+                    foreach (var item in WidgetData.liveyPropertiesData)
+                    {
+                        string uiElementType = item.Value["type"].ToString();
+                        if (!uiElementType.Equals("button", StringComparison.OrdinalIgnoreCase) && !uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (uiElementType.Equals("slider", StringComparison.OrdinalIgnoreCase) ||
+                                uiElementType.Equals("dropdown", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (int)item.Value["value"]);
+                            }
+                            else if(uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (bool)item.Value["value"]);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private void ChromeBrowser_IsBrowserInitializedChanged1(object sender, EventArgs e)
@@ -308,7 +420,7 @@ namespace cefsharptest
         #region cscore
         private void CSCoreInit()
         {
-            Stop();
+            StopCSCore();
             //open the default device 
             _soundIn = new WasapiLoopbackCapture();
             //Our loopback capture opens the default render device by default so the following is not needed
@@ -380,10 +492,13 @@ namespace cefsharptest
 
         }
 
-        private void Stop()
+        private void StopTimer()
         {
-            if(timer != null)
+            if (timer != null)
                 timer.Stop();
+        }
+        private void StopCSCore()
+        {
 
             if (_soundOut != null)
             {
@@ -416,15 +531,19 @@ namespace cefsharptest
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         private void Form1_Load(object sender, EventArgs e)
         {
-            ShowWindow(this.Handle, 0); //hiding other windows, lively is picking up the chromium rendering window.
+            if (linkType != LinkType.deviantart)
+            {
+                ShowWindow(this.Handle, 0); //hiding other windows, lively is picking up the chromium rendering window.
+            }
         }
 
         private void Form1_FormClosing_1(object sender, FormClosingEventArgs e)
         {
+            StopTimer();
             //ShowWindow(this.Handle, 4);
             if (enableCSCore)
             {
-                Stop(); //cscore & timer
+                StopCSCore(); 
                 //chromeBrowser.JavascriptObjectRepository.UnRegister("boundAsync");
                 //chromeBrowser.JavascriptObjectRepository.UnRegisterAll();
             }

@@ -1,6 +1,6 @@
 ﻿namespace cefsharptest
 {
-    partial class Form1
+    partial class SettingsWidget
     {
         /// <summary>
         /// Required designer variable.
@@ -30,29 +30,25 @@
         {
             this.SuspendLayout();
             // 
-            // Form1
+            // SettingsWidget
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1280, 720);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "Form1";
-            this.ShowIcon = false;
+            this.AutoScroll = true;
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(37)))));
+            this.ClientSize = new System.Drawing.Size(307, 673);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
+            this.MinimumSize = new System.Drawing.Size(325, 640);
+            this.Name = "SettingsWidget";
+            this.Opacity = 0.9D;
             this.ShowInTaskbar = false;
-            this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
-            this.Text = "Form1";
-            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
-            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form1_FormClosing_1);
-            this.Load += new System.EventHandler(this.Form1_Load);
+            this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
+            this.Text = "Properties";
+            this.Load += new System.EventHandler(this.SettingsWidget_Load);
             this.ResumeLayout(false);
 
         }
 
         #endregion
-
-       // private CefSharp.WinForms.ChromiumWebBrowser chromeBrowser;
     }
 }
-
