@@ -63,9 +63,9 @@ namespace cefsharptest.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon icons8_chromium_96 {
+        internal static System.Drawing.Icon icons8_pencil_48 {
             get {
-                object obj = ResourceManager.GetObject("icons8_chromium_96", resourceCulture);
+                object obj = ResourceManager.GetObject("icons8_pencil_48", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }
@@ -73,9 +73,9 @@ namespace cefsharptest.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Icon similar to (Icon).
         /// </summary>
-        internal static System.Drawing.Icon icons8_pencil_48 {
+        internal static System.Drawing.Icon icons8_seed_of_life_96 {
             get {
-                object obj = ResourceManager.GetObject("icons8_pencil_48", resourceCulture);
+                object obj = ResourceManager.GetObject("icons8_seed_of_life_96", resourceCulture);
                 return ((System.Drawing.Icon)(obj));
             }
         }

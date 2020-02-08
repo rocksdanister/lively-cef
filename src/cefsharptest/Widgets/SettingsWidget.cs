@@ -24,8 +24,8 @@ namespace cefsharptest
         //JObject rss = null;
         List<object> uiElement = new List<object>();
         const int uiElementWidth = 200;  
-        const int uiElementHeight = 50;
-        const int uiElementMargin = 5;
+        const int uiElementHeight = 40;
+        const int uiElementMargin = 10;
         readonly string propertyFilePath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
         public SettingsWidget(string arg)
         {
@@ -120,6 +120,8 @@ namespace cefsharptest
                 {
                     var btn = new Button
                     {
+                        BackColor = Color.FromArgb(65, 65, 65),
+                        ForeColor = Color.FromArgb(200, 200, 200),
                         Name = item.Key,
                         Text = item.Value["value"].ToString()
                     };
@@ -177,7 +179,7 @@ namespace cefsharptest
                         Name = item.Key,
                         Text = item.Value["value"].ToString(),
                         TextAlign = ContentAlignment.MiddleLeft,
-                        AutoSize = true,
+                        //AutoSize = true,
                         ForeColor = Color.FromArgb(200, 200, 200),
                         Font = new Font("Segoe UI", 10, FontStyle.Regular)
                     };
@@ -193,12 +195,14 @@ namespace cefsharptest
                     !uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase) &&
                     !uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
+                    
                     AddUIElement(new Label() { Text = item.Value["text"].ToString(), 
-                        TextAlign = ContentAlignment.BottomLeft, 
-                        AutoSize = true, 
+                        TextAlign = ContentAlignment.BottomLeft,
+                        //AutoSize = true, 
                         ForeColor = Color.FromArgb(200,200,200),
                         Font = new Font("Segoe UI", 10, FontStyle.Regular)
                     });
+                    
                 }
                 AddUIElement(obj);
             }
@@ -206,6 +210,7 @@ namespace cefsharptest
 
         private void AddUIElement(dynamic obj)
         {
+            
             obj.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
             if (uiElement.Count == 0)
             {
@@ -217,10 +222,12 @@ namespace cefsharptest
             }
 
             obj.Left = uiElementMargin;
-            //obj.Height = uiElementHeight;
+            obj.Height = uiElementHeight;
             obj.Width = uiElementWidth;
-            uiElement.Add(obj);
-            this.Controls.Add(obj);
+            
+            uiElement.Add(obj);  
+            this.flowLayoutPanel1.Controls.Add(obj);
+            this.flowLayoutPanel1.SetFlowBreak(obj, true);
         }
         #endregion
 
@@ -352,5 +359,20 @@ namespace cefsharptest
             }
         }
         #endregion
+
+        private void flowLayoutPanel1_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void flowLayoutPanel1_Layout(object sender, LayoutEventArgs e)
+        {
+
+        }
+
+        private void flowLayoutPanel1_SizeChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }

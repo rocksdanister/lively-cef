@@ -40,7 +40,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>icons8-chromium-96.ico</ApplicationIcon>
+    <ApplicationIcon>icons8-seed-of-life-96.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="CSCore, Version=1.2.1.2, Culture=neutral, PublicKeyToken=5a08f2b6f4415dea, processorArchitecture=MSIL">
@@ -128,13 +128,11 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\icons8-chromium-96.png" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\icons8-chromium-96.ico" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="icons8-chromium-96.ico" />
+    <Content Include="icons8-seed-of-life-96.ico" />
+    <None Include="Resources\icons8-seed-of-life-96.ico" />
     <None Include="Resources\icons8-pencil-48.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

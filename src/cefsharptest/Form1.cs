@@ -55,6 +55,7 @@ namespace cefsharptest
         //private VoicePrint3DSpectrum _voicePrint3DSpectrum;
         System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
+        static SettingsWidget settingsWidget = null;
 
         /// <summary>
         /// std I/O redirect, used to communicate with lively. 
@@ -62,30 +63,54 @@ namespace cefsharptest
         /// </summary>
         public async static void ListenToParent()
         {
-            //Thread thread = null;
-            await Task.Run(async () =>
+            try
             {
-                while (true) // Loop runs only once per line received
+                await Task.Run(async () =>
                 {
-                    string text = await Console.In.ReadLineAsync();
-                    if (String.Equals(text,"Terminate",StringComparison.OrdinalIgnoreCase))
-                    {                      
-                        break;
+                    while (true) // Loop runs only once per line received
+                {
+                        string text = await Console.In.ReadLineAsync();
+                        if (String.Equals(text, "Terminate", StringComparison.OrdinalIgnoreCase))
+                        {
+                            break;
+                        }
+                        else if (String.Equals(text, "Reload", StringComparison.OrdinalIgnoreCase))
+                        {
+                            chromeBrowser.Reload(true);
+                        }
+                        else if (Contains(text, "lively-customise", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                if (settingsWidget == null)
+                                {
+                                    mainForm.Invoke((MethodInvoker)delegate ()
+                                    {
+                                        settingsWidget = new SettingsWidget(text);
+                                        settingsWidget.FormClosed += SettingsWidget_FormClosed;
+                                        settingsWidget.Show();
+                                    });
+                                }
+                                else
+                                {
+                                    settingsWidget.Activate();
+                                }
+                            }
+                            catch 
+                            {
+                                //todo: logging.
+                            }
+                        }
                     }
-                    else if(String.Equals(text, "Reload", StringComparison.OrdinalIgnoreCase))
-                    {
-                        chromeBrowser.Reload(true);
-                    }
-                    else if (Contains(text, "lively-customise", StringComparison.OrdinalIgnoreCase))
-                    {
-                        mainForm.Invoke((MethodInvoker)delegate () {
-                            SettingsWidget settingsWidget = new SettingsWidget(text);
-                            settingsWidget.Show();
-                        });
-                    }
-                }
-            });
-            Application.Exit();
+                });
+                Application.Exit();
+            }
+            catch { }
+        }
+
+        private static void SettingsWidget_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            settingsWidget = null;
         }
 
         /// <summary>
@@ -109,10 +134,10 @@ namespace cefsharptest
         }
 
         public Form1()
-        {          
+        {
             InitializeComponent();
             mainForm = this;
-            ListenToParent(); //stdin listen
+            ListenToParent(); //stdin listen pipe.
 
             if ( args.Length == 3 ) //args[0] = application.exe
             {
@@ -158,7 +183,11 @@ namespace cefsharptest
 
             if (enableCSCore)
             {
-                CSCoreInit(); //audio analyser              
+                CSCoreInit(); //audio analyser  
+                //timer, audio sends audio data etc
+                timer.Interval = 33; //30fps
+                timer.Tick += Timer_Tick1;
+                timer.Start();
             }
 
             if (args[2] == "local")
@@ -191,15 +220,11 @@ namespace cefsharptest
                 WidgetData.LoadLivelyProperties(Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json"));
             }
             catch
-            { 
-                //can be non-customisable wp, file missing error:- ignore.
-            } 
+            {
+                //can be non-customisable wp, file missing/corrupt error: skip.
+            }
 
             InitializeChromium();
-            //timer, audio sends audio data etc
-            timer.Interval = 33; //30fps
-            timer.Tick += Timer_Tick1;
-            timer.Start();
         }
 
         #region audio_data_passing
@@ -342,7 +367,7 @@ namespace cefsharptest
 
         private void ChromeBrowser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
         {
-            if (WidgetData.liveyPropertiesData == null)
+            if (WidgetData.liveyPropertiesData == null || e.IsLoading)
             {
                 return;
             }
@@ -364,6 +389,10 @@ namespace cefsharptest
                             else if(uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
                             {
                                 Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (bool)item.Value["value"]);
+                            }
+                            else if(uiElementType.Equals("color", StringComparison.OrdinalIgnoreCase) || uiElementType.Equals("textbox", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (string)item.Value["value"]);
                             }
                         }
                     }

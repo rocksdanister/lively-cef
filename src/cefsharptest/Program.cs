@@ -22,7 +22,7 @@ namespace cefsharptest
             bool cont = false;
             foreach (var item in Process.GetProcesses())
             {
-                if (String.Equals(item.ProcessName, "livelywpf", StringComparison.InvariantCultureIgnoreCase))
+                if (String.Equals(item.ProcessName, "livelywpf", StringComparison.OrdinalIgnoreCase))
                 {
                     cont = true;
                     break;
