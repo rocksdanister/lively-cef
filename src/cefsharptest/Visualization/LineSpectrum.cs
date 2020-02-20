@@ -117,17 +117,8 @@ namespace cefsharptest
             }
             else
             {
-                //System.Diagnostics.Debug.WriteLine("livelygetspectrum error");
-                //return fftBuffer;
-                //return null;
-            }
-
-            //return fftBuffer;
-
-            for (int i = 0; i < fftBuffer.Length; i++)
-            {
-                //fftBuffer[i] /= 100;
-                //Debug.Write(fftBuffer[i] + " ");
+                System.Diagnostics.Debug.WriteLine("livelygetspectrum error");
+                return null;
             }
 
             int height = CurrentSize.Height;
@@ -136,8 +127,6 @@ namespace cefsharptest
             for (int i = 0; i < dats.Length; i++)
             {
                 res[i] = (float)dats[i].Value;
-                //System.Diagnostics.Debug.WriteLine(res[i]);
-                //res[i] = (float)dats[i].Value - 1;
             }
 
             return res;
