@@ -236,11 +236,10 @@ namespace cefsharptest
                 {
                     if (enableCSCore)
                     {
-                        //ExecuteScriptAsync("livelyAudioListener", _lineSpectrum.livelyGetSystemAudioSpectrum());
                         var fftBuffer = new float[(int)fftSize];
-                        //spectrumProvider.GetFftData(fftBuffer, this);
                         fftBuffer = _lineSpectrum.livelyGetSystemAudioSpectrum();
-                        ExecuteScriptAsync("livelyAudioListener", fftBuffer);
+                        if(fftBuffer != null)
+                            ExecuteScriptAsync("livelyAudioListener", fftBuffer);
                     }
                 }
             }
@@ -273,12 +272,7 @@ namespace cefsharptest
             var stringBuilder = new StringBuilder();
             stringBuilder.Append(methodName);
             stringBuilder.Append("([");
-            /*
-            foreach (var item in args)
-            {
-                stringBuilder.Append(item + ",");
-            }
-            */
+
             for (int i = 0; i < args.Length; i++)
             {
                 stringBuilder.Append(args[i]);
@@ -475,7 +469,7 @@ namespace cefsharptest
         }
 
         BasicSpectrumProvider spectrumProvider;
-        const FftSize fftSize = FftSize.Fft128; //128 sample values
+        const FftSize fftSize = FftSize.Fft128; //128 sample values, higher values heavy idle cpu usage.
         /// <summary>
         /// 
         /// </summary>

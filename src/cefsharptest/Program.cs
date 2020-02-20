@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Diagnostics;
+using System.Globalization;
+using System.Threading;
 
 namespace cefsharptest
 {
@@ -40,6 +42,10 @@ namespace cefsharptest
                 File.Delete(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log"));
             }
             catch { }
+
+            //cscore is culture sensitive?, fix?
+            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);

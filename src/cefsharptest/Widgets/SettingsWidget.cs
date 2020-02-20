@@ -14,11 +14,13 @@ using Newtonsoft.Json.Linq;
 using System.IO;
 using System.Diagnostics;
 using cefsharptest.Widgets;
+using MaterialSkin.Controls;
+using MaterialSkin;
 
 namespace cefsharptest
 {
 
-    public partial class SettingsWidget : Form
+    public partial class SettingsWidget : MaterialForm
     {
 
         //JObject rss = null;
@@ -26,6 +28,7 @@ namespace cefsharptest
         const int uiElementWidth = 200;  
         const int uiElementHeight = 40;
         const int uiElementMargin = 10;
+
         readonly string propertyFilePath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
         public SettingsWidget(string arg)
         {
@@ -36,8 +39,13 @@ namespace cefsharptest
                 return;
             }
             InitializeComponent();
-            this.Icon = Properties.Icons.icons8_pencil_48;
+            var materialSkinManager = MaterialSkinManager.Instance;
+            materialSkinManager.AddFormToManage(this);
+            materialSkinManager.Theme = MaterialSkinManager.Themes.DARK;
+            materialSkinManager.ColorScheme = new ColorScheme(Primary.Grey800, Primary.Grey700, Primary.Grey900, Accent.Lime700, TextShade.WHITE);
 
+            this.Icon = Properties.Icons.icons8_pencil_48;
+      
             Screen screen = null;
             foreach (var item in Screen.AllScreens)
             {
@@ -55,6 +63,9 @@ namespace cefsharptest
             this.StartPosition = FormStartPosition.Manual;
             this.Height = (int)(screen.WorkingArea.Height / 1.2f);
             this.Location = new Point(screen.Bounds.Right - this.Width, screen.WorkingArea.Bottom - this.Height);
+            this.MaximumSize = new Size(320, int.MaxValue);
+
+
         }
 
         #region ui_generation
@@ -77,7 +88,7 @@ namespace cefsharptest
             if (WidgetData.liveyPropertiesData.Count == 0)
             {
                 //nothing here
-                AddUIElement(new Label()
+                AddUIElement(new MaterialLabel()
                 {
                     Text = "1+1=1",
                     TextAlign = ContentAlignment.BottomLeft,
@@ -140,7 +151,7 @@ namespace cefsharptest
                 }
                 else if (uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
                 {
-                    var chk = new CheckBox
+                    var chk = new MaterialCheckBox
                     {
                         Name = item.Key,
                         Text = item.Value["text"].ToString(),
@@ -174,7 +185,7 @@ namespace cefsharptest
                 }
                 else if (uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
-                    var label = new Label
+                    var label = new MaterialLabel
                     {
                         Name = item.Key,
                         Text = item.Value["value"].ToString(),
@@ -196,7 +207,7 @@ namespace cefsharptest
                     !uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
                     
-                    AddUIElement(new Label() { Text = item.Value["text"].ToString(), 
+                    AddUIElement(new MaterialLabel() { Text = item.Value["text"].ToString(), 
                         TextAlign = ContentAlignment.BottomLeft,
                         //AutoSize = true, 
                         ForeColor = Color.FromArgb(200,200,200),
@@ -205,6 +216,18 @@ namespace cefsharptest
                     
                 }
                 AddUIElement(obj);
+                //label with trackbar value
+                if (uiElementType.Equals("slider", StringComparison.OrdinalIgnoreCase))
+                {
+                    AddUIElement(new MaterialLabel
+                    {
+                        Text = item.Value["value"].ToString(),
+                        TextAlign = ContentAlignment.MiddleRight,
+                        //AutoSize = true, 
+                        ForeColor = Color.FromArgb(200, 200, 200),
+                        Font = new Font("Segoe UI", 10, FontStyle.Regular)
+                    });
+                }
             }
         }
 
@@ -225,7 +248,8 @@ namespace cefsharptest
             obj.Height = uiElementHeight;
             obj.Width = uiElementWidth;
             
-            uiElement.Add(obj);  
+            uiElement.Add(obj);
+            //this.panel1.Controls.Add(obj);
             this.flowLayoutPanel1.Controls.Add(obj);
             this.flowLayoutPanel1.SetFlowBreak(obj, true);
         }
@@ -344,7 +368,9 @@ namespace cefsharptest
             try
             {
                 var item = (TrackBar)sender;
-                //Debug.WriteLine(item.Name + " " + item.Value.ToString());
+                //label with trackbar value.
+                var lbl = (Label)uiElement[uiElement.FindIndex(x => x.Equals(sender)) + 1];
+                lbl.Text = item.Value.ToString();
 
                 if (Form1.chromeBrowser.CanExecuteJavascriptInMainFrame)
                 {
