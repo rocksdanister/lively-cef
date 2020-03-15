@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -12,19 +8,19 @@ using CefSharp.SchemeHandler;
 using CefSharp.WinForms;
 using System.IO;
 using System.Diagnostics;
-
 using CSCore;
-using CSCore.Codecs;
 using CSCore.DSP;
 using CSCore.SoundOut;
 using CSCore.SoundIn;
 using CSCore.Streams;
 using CSCore.Streams.Effects;
-using CSCore.CoreAudioAPI;
 using System.Runtime.InteropServices;
-using System.Threading;
 using CefSharp.Example.Handlers;
 using cefsharptest.Widgets;
+//using System.CommandLine;
+//using System.CommandLine.Invocation;
+using CommandLine;
+using System.Text.RegularExpressions;
 
 namespace cefsharptest
 {
@@ -43,20 +39,162 @@ namespace cefsharptest
 
         private bool enableCSCore = false;
         public static string htmlPath = null;
+        public static string livelyPropertyPath = null;
+        public static bool livelyPropertyRestoreDisabled = false;
         private string path = null;
-        string[] args = Environment.GetCommandLineArgs();
+        private readonly string[] args = Environment.GetCommandLineArgs();
 
         //cscore
         private WasapiCapture _soundIn;
         private ISoundOut _soundOut;
         private IWaveSource _source;
-        private PitchShifter _pitchShifter;
         private LineSpectrum _lineSpectrum;
-        //private VoicePrint3DSpectrum _voicePrint3DSpectrum;
+        private PitchShifter _pitchShifter;
         System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
         static SettingsWidget settingsWidget = null;
+        static string settingsWidgetPreviousIPCMsg = null;
 
+        #region commandline
+        class Options
+        {
+            [Option( "url", 
+            Required = true,
+            HelpText = "The url/html-file to load.")]
+            public string Url { get; set; }
+
+            [Option("property",
+            Required = false,
+            Default = null,
+            HelpText = "LivelyProperties.info parent path (SaveData/wpdata).")]
+            public string Properties { get; set; }
+
+            [Option("type",
+            Required = true,
+            HelpText = "LinkType class.")]
+            public string Type { get; set; }
+
+            [Option("display",
+            Required = true,
+            HelpText = "Wallpaper running display.")]
+            public string DisplayDevice { get; set; }
+
+            [Option("audio",
+            Default = false,
+            HelpText = "Analyse system audio(visualiser data.)")]
+            public bool AudioAnalyse { get; set; }
+
+        }
+
+        public Form1()
+        {
+            InitializeComponent();
+            mainForm = this;
+            ListenToParent(); //stdin listen pipe.
+            
+            CommandLine.Parser.Default.ParseArguments<Options>(args)
+            .WithParsed(RunOptions)
+            .WithNotParsed(HandleParseError);
+
+            if (enableCSCore)
+            {
+                CSCoreInit(); //audio analyser  
+                //timer, audio sends audio data etc
+                timer.Interval = 33; //30fps
+                timer.Tick += Timer_Tick1;
+                timer.Start();
+            }
+            
+            try
+            {
+                WidgetData.LoadLivelyProperties(livelyPropertyPath);
+            }
+            catch
+            {
+                //can be non-customisable wp, file missing/corrupt error: skip.
+            }     
+            InitializeChromium();     
+        }
+
+        private void RunOptions(Options opts)
+        {
+            path = opts.Url;
+            htmlPath = path;
+            originalUrl = opts.Url;
+            enableCSCore = opts.AudioAnalyse;
+
+            if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
+            {
+                linkType = LinkType.local;
+            }
+            else if (opts.Type.Equals("online", StringComparison.OrdinalIgnoreCase))
+            {
+                if (path.Contains("shadertoy.com/view"))
+                {
+                    linkType = LinkType.shadertoy;
+                }
+                else
+                {
+                    linkType = LinkType.online;
+                }
+            }
+            else if (opts.Type.Equals("deviantart", StringComparison.OrdinalIgnoreCase))
+            {
+                linkType = LinkType.deviantart;
+
+                this.FormBorderStyle = FormBorderStyle.Sizable;
+                this.WindowState = FormWindowState.Maximized;
+                //this.SizeGripStyle = SizeGripStyle.Show;
+                this.ShowInTaskbar = true;
+                this.MaximizeBox = true;
+                this.MinimizeBox = true;
+            }
+
+            try
+            {
+                //todo: if absolute path, then ignore this procedure (otherwise folder conflict if same folder exists for different wp.)
+                if (File.Exists(Path.Combine(Directory.GetParent(htmlPath).ToString(), "LivelyProperties.json")) && linkType == LinkType.local)
+                {
+                    //extract last digits of the Screen class DeviceName, eg: \\.\DISPLAY4 -> 4
+                    var result = Regex.Match(opts.DisplayDevice, @"\d+$", RegexOptions.RightToLeft);
+                    if (result.Success)
+                    {
+                        //Create a directory with the wp foldername in SaveData/wpdata/, copy livelyproperties.json into this.
+                        //Further modifications are done to the copy file.
+                        var basePath = Path.Combine(opts.Properties, new System.IO.DirectoryInfo(Directory.GetParent(htmlPath).ToString()).Name);
+                        Directory.CreateDirectory(Path.Combine(basePath, result.Value));
+                        if (!File.Exists(Path.Combine(basePath, result.Value, "LivelyProperties.json")))
+                            File.Copy(Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json"), Path.Combine(basePath, result.Value, "LivelyProperties.json"));
+
+                        livelyPropertyPath = Path.Combine(basePath, result.Value, "LivelyProperties.json");
+                    }
+                    else
+                    {
+                        //fallback, use the original file (restore feature disabled.)
+                        livelyPropertyPath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
+                        livelyPropertyRestoreDisabled = true;
+                    }
+                }
+            }
+            catch
+            {
+                //fallback, use the original file (restore feature disabled.)
+                livelyPropertyPath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
+                livelyPropertyRestoreDisabled = true;
+            }
+        }
+
+        private void HandleParseError(IEnumerable<Error> errs)
+        {
+            if (Application.MessageLoop)
+                Application.Exit();
+            else
+                Environment.Exit(1);
+        }
+
+        #endregion commandline
+
+        #region ipc
         /// <summary>
         /// std I/O redirect, used to communicate with lively. 
         /// todo:- rewrite with named pipes.
@@ -68,7 +206,7 @@ namespace cefsharptest
                 await Task.Run(async () =>
                 {
                     while (true) // Loop runs only once per line received
-                {
+                    {
                         string text = await Console.In.ReadLineAsync();
                         if (String.Equals(text, "Terminate", StringComparison.OrdinalIgnoreCase))
                         {
@@ -86,6 +224,7 @@ namespace cefsharptest
                                 {
                                     mainForm.Invoke((MethodInvoker)delegate ()
                                     {
+                                        settingsWidgetPreviousIPCMsg = text;
                                         settingsWidget = new SettingsWidget(text);
                                         settingsWidget.FormClosed += SettingsWidget_FormClosed;
                                         settingsWidget.Show();
@@ -96,7 +235,7 @@ namespace cefsharptest
                                     settingsWidget.Activate();
                                 }
                             }
-                            catch 
+                            catch
                             {
                                 //todo: logging.
                             }
@@ -111,6 +250,20 @@ namespace cefsharptest
         private static void SettingsWidget_FormClosed(object sender, FormClosedEventArgs e)
         {
             settingsWidget = null;
+        }
+        public static void SettingsWidgetReload()
+        {
+            try
+            {
+                settingsWidget.Close();
+                settingsWidget = new SettingsWidget(settingsWidgetPreviousIPCMsg);
+                settingsWidget.FormClosed += SettingsWidget_FormClosed;
+                settingsWidget.Show();
+            }
+            catch
+            {
+                //todo: logging.
+            }
         }
 
         /// <summary>
@@ -132,163 +285,7 @@ namespace cefsharptest
 
             return str.IndexOf(substring, comp) >= 0;
         }
-
-        public Form1()
-        {
-            InitializeComponent();
-            mainForm = this;
-            ListenToParent(); //stdin listen pipe.
-
-            if ( args.Length == 3 ) //args[0] = application.exe
-            {
-                if (String.IsNullOrEmpty(args[1])) //url
-                {
-                    if (Application.MessageLoop)
-                        Application.Exit();
-                    else
-                        Environment.Exit(1); //if msgloop not ready 
-                }
-                else if(String.IsNullOrEmpty(args[2])) //local-file/online-url flag
-                {
-                    if (Application.MessageLoop)
-                        Application.Exit();
-                    else
-                        Environment.Exit(1); 
-                }             
-            }
-            else if( args.Length == 4 )
-            {
-                if (String.IsNullOrEmpty(args[3])) //audio visualiser flag
-                {
-                    if (Application.MessageLoop)
-                        Application.Exit();
-                    else
-                        Environment.Exit(1); //if msgloop not ready 
-                }
-                else if(String.Equals("audio",args[3],StringComparison.InvariantCultureIgnoreCase))
-                {
-                    enableCSCore = true;
-                }
-            }
-            else
-            {           
-                if (Application.MessageLoop)
-                    Application.Exit();
-                else
-                    Environment.Exit(1);    
-            }
-            path = args[1];
-            htmlPath = path;
-            originalUrl = args[1];
-
-            if (enableCSCore)
-            {
-                CSCoreInit(); //audio analyser  
-                //timer, audio sends audio data etc
-                timer.Interval = 33; //30fps
-                timer.Tick += Timer_Tick1;
-                timer.Start();
-            }
-
-            if (args[2] == "local")
-            {
-                linkType = LinkType.local;
-            }
-            else if (args[2] == "online")
-            {
-                if (path.Contains("shadertoy.com/view"))
-                {
-                    linkType = LinkType.shadertoy;
-                }
-                else
-                    linkType = LinkType.online;
-            }
-            else if( args[2] == "deviantart")
-            {
-                linkType = LinkType.deviantart;
-
-                this.FormBorderStyle = FormBorderStyle.Sizable;
-                this.WindowState = FormWindowState.Maximized;
-                //this.SizeGripStyle = SizeGripStyle.Show;
-                this.ShowInTaskbar = true;
-                this.MaximizeBox = true;
-                this.MinimizeBox = true;
-            }
-
-            try
-            {
-                WidgetData.LoadLivelyProperties(Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json"));
-            }
-            catch
-            {
-                //can be non-customisable wp, file missing/corrupt error: skip.
-            }
-
-            InitializeChromium();
-        }
-
-        #region audio_data_passing
-        private async void Timer_Tick1(object sender, EventArgs e)
-        {
-            try
-            {
-                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                {
-                    if (enableCSCore)
-                    {
-                        var fftBuffer = new float[(int)fftSize];
-                        fftBuffer = _lineSpectrum.livelyGetSystemAudioSpectrum();
-                        if(fftBuffer != null)
-                            ExecuteScriptAsync("livelyAudioListener", fftBuffer);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Audio-timer error: " + ex.Message);
-            }
-        }
-
-        public void DebugSpectrum()
-        {
-            var fftBuffer = new float[(int)fftSize];
-            if (spectrumProvider.GetFftData(fftBuffer, this))
-            {
-                // System.Diagnostics.Debug.WriteLine(fftBuffer);
-                foreach (var item in fftBuffer)
-                {
-                    System.Diagnostics.Debug.Write(item*10 + " ");
-                }
-                System.Diagnostics.Debug.WriteLine("End");
-            }
-        }
-
-        //original ref: https://github.com/cefsharp/CefSharp/pull/1372/files
-        /// <summary>
-        /// Modified for passing array to js.
-        /// </summary>
-        void ExecuteScriptAsync(string methodName, float[] args)
-        {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.Append(methodName);
-            stringBuilder.Append("([");
-
-            for (int i = 0; i < args.Length; i++)
-            {
-                stringBuilder.Append(args[i]);
-                stringBuilder.Append(",");
-            }
-
-            //Remove the trailing comma
-            stringBuilder.Remove(stringBuilder.Length - 2, 2); 
-
-            stringBuilder.Append("]);");
-            var script = stringBuilder.ToString();
-
-            chromeBrowser.ExecuteScriptAsync(script);
-        }
-
-        #endregion
+        #endregion ipc
 
         #region cef
         /// <summary>
@@ -296,6 +293,8 @@ namespace cefsharptest
         /// </summary>
         public void InitializeChromium()
         {
+
+            Debug.WriteLine("init-chromium:" + path + " " + linkType);
             CefSettings settings = new CefSettings();
             if (linkType == LinkType.local)
             {
@@ -310,11 +309,10 @@ namespace cefsharptest
                            defaultPage: Path.GetFileName(path)//"index.html" // will default to index.html
                     )
 
-                    
                 });
                 path = "localfolder://" + Path.GetFileName(path);
             }
-   
+
             //ref: https://magpcss.org/ceforum/apidocs3/projects/(default)/_cef_browser_settings_t.html#universal_access_from_file_urls
             //settings.CefCommandLineArgs.Add("allow-universal-access-from-files", "1"); //UNSAFE, Testing Only!
             settings.CefCommandLineArgs.Add("--mute-audio", "1");
@@ -380,11 +378,27 @@ namespace cefsharptest
                             {
                                 Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (int)item.Value["value"]);
                             }
-                            else if(uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
+                            else if (uiElementType.Equals("folderDropdown", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), item.Value["folder"].ToString(), item.Value["value"].ToString());
+                                if (File.Exists(filePath))
+                                {
+                                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                    item.Key,
+                                    Path.Combine(item.Value["folder"].ToString(), item.Value["value"].ToString()));
+                                }
+                                else
+                                {
+                                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                    item.Key,
+                                    null); //or custom msg
+                                }
+                            }
+                            else if (uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
                             {
                                 Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (bool)item.Value["value"]);
                             }
-                            else if(uiElementType.Equals("color", StringComparison.OrdinalIgnoreCase) || uiElementType.Equals("textbox", StringComparison.OrdinalIgnoreCase))
+                            else if (uiElementType.Equals("color", StringComparison.OrdinalIgnoreCase) || uiElementType.Equals("textbox", StringComparison.OrdinalIgnoreCase))
                             {
                                 Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (string)item.Value["value"]);
                             }
@@ -405,7 +419,7 @@ namespace cefsharptest
         {
             Debug.WriteLine("Error Loading Page:-" + e.ErrorText);               //ERR_BLOCKED_BY_RESPONSE, likely missing audio/video codec error for youtube.com?
             if (linkType == LinkType.local || e.ErrorCode == CefErrorCode.Aborted || e.ErrorCode == (CefErrorCode)(-27))//e.ErrorCode == CefErrorCode.NameNotResolved || e.ErrorCode == CefErrorCode.InternetDisconnected   || e.ErrorCode == CefErrorCode.NetworkAccessDenied || e.ErrorCode == CefErrorCode.NetworkIoSuspended)
-            {        
+            {
                 //ignoring some error's.
                 return;
             }
@@ -439,6 +453,69 @@ namespace cefsharptest
         }
 
         #endregion cef
+
+        #region cef_audio
+        private async void Timer_Tick1(object sender, EventArgs e)
+        {
+            try
+            {
+                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                {
+                    if (enableCSCore)
+                    {
+                        var fftBuffer = new float[(int)fftSize];
+                        fftBuffer = _lineSpectrum.livelyGetSystemAudioSpectrum();
+                        if(fftBuffer != null)
+                            ExecuteScriptAsync("livelyAudioListener", fftBuffer);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Audio-timer error: " + ex.Message);
+            }
+        }
+
+        //original ref: https://github.com/cefsharp/CefSharp/pull/1372/files
+        /// <summary>
+        /// Modified for passing array to js.
+        /// </summary>
+        void ExecuteScriptAsync(string methodName, float[] args)
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.Append(methodName);
+            stringBuilder.Append("([");
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                stringBuilder.Append(args[i]);
+                stringBuilder.Append(",");
+            }
+
+            //Remove the trailing comma
+            stringBuilder.Remove(stringBuilder.Length - 2, 2); 
+
+            stringBuilder.Append("]);");
+            var script = stringBuilder.ToString();
+
+            chromeBrowser.ExecuteScriptAsync(script);
+        }
+
+        public void DebugSpectrum()
+        {
+            var fftBuffer = new float[(int)fftSize];
+            if (spectrumProvider.GetFftData(fftBuffer, this))
+            {
+                // System.Diagnostics.Debug.WriteLine(fftBuffer);
+                foreach (var item in fftBuffer)
+                {
+                    System.Diagnostics.Debug.Write(item * 10 + " ");
+                }
+                System.Diagnostics.Debug.WriteLine("End");
+            }
+        }
+
+        #endregion cef_audio
 
         #region cscore
         private void CSCoreInit()
@@ -549,7 +626,7 @@ namespace cefsharptest
 
         #endregion cscore
 
-        #region misc
+        #region window
         [DllImport("user32.dll")]
         static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         private void Form1_Load(object sender, EventArgs e)
@@ -573,6 +650,11 @@ namespace cefsharptest
             Cef.Shutdown();
         }
 
-        #endregion
+        private void Form1_Shown(object sender, EventArgs e)
+        {
+
+        }
+        #endregion window
+
     }
 }

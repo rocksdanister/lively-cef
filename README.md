@@ -11,4 +11,6 @@ Newtonsoft.json: https://github.com/JamesNK/Newtonsoft.Json
 
 MaterialSkin: https://github.com/IgnaceMaes/MaterialSkin
 
+Commandline Parser: https://github.com/commandlineparser/commandline
+
 App Icons by icons8: https://icons8.com/

@@ -22,5 +22,21 @@ namespace cefsharptest.Widgets
             liveyPropertiesData = JObject.Parse(json);
         }
 
+        [Serializable]
+        public class FolderDropdownClass
+        {
+            public string FileName { get; set; }
+            public string FullPath { get; set; }
+            public string RelativePath { get; set; }
+            public object MenuItem { get; set; }
+
+            public FolderDropdownClass(string fileName, string fullPath, string relativePath, object obj)
+            {
+                FileName = fileName;
+                FullPath = fullPath;
+                RelativePath = relativePath;
+                MenuItem = obj;
+            }
+        }
     }
 }
