@@ -89,6 +89,9 @@ namespace cefsharptest
         public Form1()
         {
             InitializeComponent();
+            this.StartPosition = FormStartPosition.Manual;
+            this.Left = -99999;
+
             mainForm = this;
             ListenToParent(); //stdin listen pipe.
             
@@ -152,7 +155,6 @@ namespace cefsharptest
 
             try
             {
-                //todo: if absolute path, then ignore this procedure (otherwise folder conflict if same folder exists for different wp.)
                 if (File.Exists(Path.Combine(Directory.GetParent(htmlPath).ToString(), "LivelyProperties.json")) && linkType == LinkType.local)
                 {
                     //extract last digits of the Screen class DeviceName, eg: \\.\DISPLAY4 -> 4
@@ -448,7 +450,7 @@ namespace cefsharptest
 
             string text = @"<!DOCTYPE html><html lang=""en"" dir=""ltr""> <head> <meta charset=""utf - 8""> 
                     <title>Digital Brain</title> <style media=""screen""> iframe { position: fixed; width: 100%; height: 100%; top: 0; right: 0; bottom: 0;
-                    left: 0; z-index; -1; } </style> </head> <body> <iframe width=""640"" height=""360"" frameborder=""0"" 
+                    left: 0; z-index; -1; pointer-events: none;  } </style> </head> <body> <iframe width=""640"" height=""360"" frameborder=""0"" 
                     src=" + shadertoylink + @"?gui=false&t=10&paused=false&muted=true""></iframe> </body></html>";
             // WriteAllText creates a file, writes the specified string to the file,
             // and then closes the file.    You do NOT need to call Flush() or Close().
