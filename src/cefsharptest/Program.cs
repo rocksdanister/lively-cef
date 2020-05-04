@@ -21,19 +21,24 @@ namespace cefsharptest
         static void Main()
         {
             //Simple check.
-            bool cont = false;
-            foreach (var item in Process.GetProcesses())
+            //checks if mutex is up, if it is not up, continue execution
+            //as per this solution https://stackoverflow.com/a/6392264
+            Mutex mutex = new System.Threading.Mutex(false, "LIVELY:DESKTOPWALLPAPERSYSTEM");
+            try
             {
-                if (String.Equals(item.ProcessName, "livelywpf", StringComparison.OrdinalIgnoreCase))
+                if (mutex.WaitOne(0, false))
                 {
-                    cont = true;
-                    break;
+                    MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(1); //msgloop not ready 
                 }
             }
-            if(cont == false)
+            finally
             {
-                MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Environment.Exit(1); //msgloop not ready 
+                if (mutex != null)
+                {
+                    mutex.Close();
+                    mutex = null;
+                }
             }
 
             //deleting old CEF logfile.
