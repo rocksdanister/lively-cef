@@ -26,7 +26,9 @@ namespace cefsharptest
             Mutex mutex = new System.Threading.Mutex(false, "LIVELY:DESKTOPWALLPAPERSYSTEM");
             try
             {
-                if (mutex.WaitOne(0, false))
+                //from rockdanister's repo https://github.com/rocksdanister/lively/blob/a82d19e70edf3aa95b530b5ae8a842fc1dee5197/src/livelywpf/livelywpf/App.xaml.cs#L287
+                //wait a few seconds in case livelywpf instance is just shutting down..
+                if (mutex.WaitOne(TimeSpan.FromSeconds(5), false))
                 {
                     MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     Environment.Exit(1); //msgloop not ready 
