@@ -89,6 +89,7 @@ namespace cefsharptest
         public Form1()
         {
             InitializeComponent();
+            //opening outside user region; lively will manage location.
             this.StartPosition = FormStartPosition.Manual;
             this.Left = -99999;
 
@@ -184,6 +185,7 @@ namespace cefsharptest
                 livelyPropertyPath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
                 livelyPropertyRestoreDisabled = true;
             }
+
         }
 
         private void HandleParseError(IEnumerable<Error> errs)
@@ -278,9 +280,9 @@ namespace cefsharptest
         public static bool Contains(String str, String substring,
                                     StringComparison comp)
         {
-            if (substring == null)
-                throw new ArgumentNullException("substring",
-                                             "substring cannot be null.");
+            if (substring == null | str == null)
+                throw new ArgumentNullException("string",
+                                             "substring/string cannot be null.");
             else if (!Enum.IsDefined(typeof(StringComparison), comp))
                 throw new ArgumentException("comp is not a member of StringComparison",
                                          "comp");
