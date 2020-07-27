@@ -13,13 +13,34 @@ namespace cefsharptest
 
     static class Program
     {
-
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
+            try
+            {
+                bool onlyInstance = false;
+                Mutex mutex = new Mutex(true, "LIVELY:DESKTOPWALLPAPERSYSTEM", out onlyInstance);
+                if (!onlyInstance)
+                {
+
+                }
+                else
+                {
+                    MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(1); //msgloop not ready 
+                }
+
+            }
+            catch (AbandonedMutexException e)
+            {
+                //Note to self:- logger backup(in the even of previous lively crash) is at App() contructor func, DO NOT start writing loghere to avoid overwriting crashlog.
+                System.Diagnostics.Debug.WriteLine(e.Message);
+            }
+
+            /*
             //Simple check.
             bool cont = false;
             foreach (var item in Process.GetProcesses())
@@ -35,6 +56,7 @@ namespace cefsharptest
                 MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Environment.Exit(1); //msgloop not ready 
             }
+            */
 
             //deleting old CEF logfile.
             try

@@ -121,8 +121,7 @@ namespace cefsharptest
                 return null;
             }
 
-            int height = CurrentSize.Height;
-            SpectrumPointData[] spectrumPoints = CalculateSpectrumPoints(1, fftBuffer);
+            SpectrumPointData[] spectrumPoints = CalculateSpectrumPoints(2, fftBuffer);
             float[] res = new float[spectrumPoints.Length];
             for (int i = 0; i < spectrumPoints.Length; i++)
             {
