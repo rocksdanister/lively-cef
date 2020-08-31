@@ -26,6 +26,7 @@ namespace cefsharptest
 
         public bool OnBeforePopup(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, string targetUrl, string targetFrameName, WindowOpenDisposition targetDisposition, bool userGesture, IPopupFeatures popupFeatures, IWindowInfo windowInfo, IBrowserSettings browserSettings, ref bool noJavascriptAccess, out IWebBrowser newBrowser)
         {
+            //load hyperlinks on the same instance.
             browser.MainFrame.LoadUrl(targetUrl);
             newBrowser = null;
             return true;

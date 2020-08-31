@@ -14,6 +14,7 @@ namespace cefsharptest
     {
         public void OnBeforeContextMenu(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IContextMenuParams parameters, IMenuModel model)
         {
+            //Disable right-click menu, conflicting with windows desktop contextmenu.
             model.Clear();
         }
 

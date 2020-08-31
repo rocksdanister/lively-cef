@@ -328,6 +328,7 @@ namespace cefsharptest
             }
             catch { }
         }
+
         private void AddUIElement(dynamic obj)
         {
             
@@ -491,7 +492,7 @@ namespace cefsharptest
                 if (Form1.chromeBrowser.CanExecuteJavascriptInMainFrame)
                 {
                     Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Name, true);
-                    WidgetData.liveyPropertiesData[item.Name]["value"] = true;
+                    //WidgetData.liveyPropertiesData[item.Name]["value"] = true;
                     WidgetData.SaveLivelyProperties(Form1.livelyPropertyPath, WidgetData.liveyPropertiesData);
                 }
             }

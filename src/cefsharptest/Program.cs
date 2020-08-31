@@ -13,32 +13,35 @@ namespace cefsharptest
 
     static class Program
     {
-
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
-            //Simple check.
-            bool cont = false;
-            foreach (var item in Process.GetProcesses())
-            {
-                if (String.Equals(item.ProcessName, "livelywpf", StringComparison.OrdinalIgnoreCase))
-                {
-                    cont = true;
-                    break;
-                }
-            }
-            if(cont == false)
-            {
-                MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                Environment.Exit(1); //msgloop not ready 
-            }
-
-            //deleting old CEF logfile.
             try
             {
+                bool onlyInstance = false;
+                Mutex mutex = new Mutex(true, "LIVELY:DESKTOPWALLPAPERSYSTEM", out onlyInstance);
+                if (!onlyInstance)
+                {
+
+                }
+                else
+                {
+                    MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(1); //msgloop not ready 
+                }
+
+            }
+            catch (AbandonedMutexException e)
+            {
+                System.Diagnostics.Debug.WriteLine(e.Message);
+            }
+
+            try
+            {
+                //Deleting old CEF logfile if any.
                 File.Delete(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log"));
             }
             catch { }
@@ -51,6 +54,5 @@ namespace cefsharptest
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
         }
-
     }
 }
