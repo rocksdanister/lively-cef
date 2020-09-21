@@ -1,4 +1,4 @@
-# lively-cef
+# Lively WebBrowser
 
 CEF web browser component of [Lively Wallpaper System ](https://github.com/rocksdanister/lively)
 
@@ -8,7 +8,5 @@ CefSharp: https://github.com/cefsharp/CefSharp/
 cscore: https://github.com/filoe/cscore
 
 Newtonsoft.json: https://github.com/JamesNK/Newtonsoft.Json
-
-MaterialSkin: https://github.com/IgnaceMaes/MaterialSkin
 
 Commandline Parser: https://github.com/commandlineparser/commandline

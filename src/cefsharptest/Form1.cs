@@ -21,6 +21,7 @@ using CommandLine;
 using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using System.Drawing;
 
 namespace cefsharptest
 {
@@ -39,6 +40,7 @@ namespace cefsharptest
         private LinkType linkType;
         private string originalUrl;
         private string debugPort;
+        private string cachePath;
         private bool enableCSCore = false;
         public static string htmlPath = null;
         public static string livelyPropertyPath = null;
@@ -52,19 +54,14 @@ namespace cefsharptest
         private IWaveSource _source;
         private LineSpectrum _lineSpectrum;
         private PitchShifter _pitchShifter;
-        private static System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+        private static readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
-        static SettingsWidget settingsWidget = null;
-        static string settingsWidgetPreviousIPCMsg = null;
 
         public Form1()
         {
             InitializeComponent();
-            //opening outside user region; lively will manage location.
+            this.WindowState = FormWindowState.Normal;
             this.StartPosition = FormStartPosition.Manual;
-            this.Location = new System.Drawing.Point(-9999, 0);
-            //this.WindowState = FormWindowState.Minimized;
-            //this.Left = -9999;
 
             mainForm = this;
             ListenToParent(); //stdin listen pipe.
@@ -130,6 +127,11 @@ namespace cefsharptest
             Required = false,
             HelpText = "Debugging port")]
             public string DebugPort { get; set; }
+
+            [Option("cache",
+            Required = false,
+            HelpText = "disk cache path")]
+            public string CachePath { get; set; }
         }
 
         private void RunOptions(Options opts)
@@ -139,6 +141,7 @@ namespace cefsharptest
             originalUrl = opts.Url;
             enableCSCore = opts.AudioAnalyse;
             debugPort = opts.DebugPort;
+            cachePath = opts.CachePath;
 
             if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
             {
@@ -233,7 +236,12 @@ namespace cefsharptest
                     while (true) // Loop runs only once per line received
                     {
                         string text = await Console.In.ReadLineAsync();
-                        if (String.Equals(text, "lively:terminate", StringComparison.OrdinalIgnoreCase))
+                        if (String.IsNullOrEmpty(text))
+                        {
+                            //When the redirected stream is closed, a null line is sent to the event handler. 
+                            break;
+                        }
+                        else if (String.Equals(text, "lively:terminate", StringComparison.OrdinalIgnoreCase))
                         {
                             break;
                         }
@@ -246,22 +254,6 @@ namespace cefsharptest
                             try
                             {
                                 LivelyPropertiesMsg(text);
-                                /*
-                                if (settingsWidget == null)
-                                {
-                                    mainForm.Invoke((MethodInvoker)delegate ()
-                                    {
-                                        settingsWidgetPreviousIPCMsg = text;
-                                        settingsWidget = new SettingsWidget(text);
-                                        settingsWidget.FormClosed += SettingsWidget_FormClosed;
-                                        settingsWidget.Show();
-                                    });
-                                }
-                                else
-                                {
-                                    settingsWidget.Activate();
-                                }
-                                */
                             }
                             catch
                             {
@@ -274,16 +266,22 @@ namespace cefsharptest
                             await PlaybackWallpaperIPC(text);
                         }
                     }
-                });
-                if(chromeBrowser != null)
+                });    
+            }
+            catch
+            {
+                //todo: forward errors to main app.
+            }
+            finally
+            {
+                if (chromeBrowser != null)
                 {
                     StopTimer();
                     chromeBrowser.Dispose();
-                    Cef.Shutdown(); 
+                    Cef.Shutdown();
                 }
-                Application.Exit();          
+                Application.Exit();
             }
-            catch { }
         }
 
         //ref: https://github.com/rocksdanister/lively/issues/20
@@ -294,7 +292,7 @@ namespace cefsharptest
             if (msg.Length < 2)
                 return;
 
-            int id;
+            //int id;
             if (msg[1].Equals("play", StringComparison.OrdinalIgnoreCase))
             {
                 //id = await chromeBrowser.ExecuteDevToolsMethodAsync(0, "Page.setWebLifecycleState", new Dictionary<string, object> {{ "state", "active" }});
@@ -394,22 +392,6 @@ namespace cefsharptest
             }
         }
 
-        private static void SettingsWidget_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            settingsWidget = null;
-        }
-        public static void SettingsWidgetReload()
-        {
-            try
-            {
-                settingsWidget.Close();
-                settingsWidget = new SettingsWidget(settingsWidgetPreviousIPCMsg);
-                settingsWidget.FormClosed += SettingsWidget_FormClosed;
-                settingsWidget.Show();
-            }
-            catch { }
-        }
-
         /// <summary>
         /// String Contains method with StringComparison property.
         /// </summary>
@@ -439,15 +421,27 @@ namespace cefsharptest
         /// </summary>
         public void InitializeChromium()
         {
-            Debug.WriteLine("init-chromium:" + path + " " + linkType);
             CefSettings settings = new CefSettings();
-            settings.BackgroundColor = Cef.ColorSetARGB(255, 43, 43, 43);
-            if(!string.IsNullOrWhiteSpace(debugPort))
+            settings.LogFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
+                "Lively Wallpaper", "Cef", "logfile.txt");
+            //settings.BackgroundColor = Cef.ColorSetARGB(255, 43, 43, 43);
+            if (!string.IsNullOrWhiteSpace(debugPort))
             {
                 //example-port: 8088
                 if (int.TryParse(debugPort, out int value))
                     settings.RemoteDebuggingPort = value;
             }
+
+            if (!string.IsNullOrWhiteSpace(cachePath))
+            {
+                settings.CachePath = cachePath;
+            }
+            else
+            {
+                //Creates GPUCache regardless even if disk CachePath is not set!
+                settings.CefCommandLineArgs.Add("--disable-gpu-shader-disk-cache");
+            }
+
             if (linkType == LinkType.local)
             {
                 settings.RegisterScheme(new CefCustomScheme
@@ -468,6 +462,8 @@ namespace cefsharptest
             //ref: https://magpcss.org/ceforum/apidocs3/projects/(default)/_cef_browser_settings_t.html#universal_access_from_file_urls
             //settings.CefCommandLineArgs.Add("allow-universal-access-from-files", "1"); //UNSAFE, Testing Only!
             //settings.CefCommandLineArgs.Add("--mute-audio", "1");
+            //auto-play video without it being muted (default cef behaviour is overriden.)
+            settings.CefCommandLineArgs.Add("autoplay-policy", "no-user-gesture-required");
 
             if (linkType == LinkType.deviantart)
             {
@@ -497,21 +493,18 @@ namespace cefsharptest
             chromeBrowser.LifeSpanHandler = new CefPopUpHandle();
 
             this.Controls.Add(chromeBrowser);
-            //chromeBrowser.Anchor = AnchorStyles.Top;
-            //chromeBrowser.Location = new Point(0, 0);
-            chromeBrowser.Dock = DockStyle.Fill;  //Top: Hide scrollbars?
+            chromeBrowser.Dock = DockStyle.Fill;
 
             chromeBrowser.IsBrowserInitializedChanged += ChromeBrowser_IsBrowserInitializedChanged1;
             chromeBrowser.LoadingStateChanged += ChromeBrowser_LoadingStateChanged;
             chromeBrowser.LoadError += ChromeBrowser_LoadError;
             chromeBrowser.TitleChanged += ChromeBrowser_TitleChanged;
-            /*
-            //binding test
-            if (enableCSCore)
-            {
-                chromeBrowser.JavascriptObjectRepository.Register("boundAsync", this._lineSpectrum, true);
-            }
-            */
+            chromeBrowser.ConsoleMessage += ChromeBrowser_ConsoleMessage;
+        }
+
+        private void ChromeBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
+        {
+            Console.WriteLine(e.Message);
         }
 
         private void ChromeBrowser_TitleChanged(object sender, TitleChangedEventArgs e)
@@ -526,7 +519,6 @@ namespace cefsharptest
             {
                 return;
             }
-
             RestoreLivelyPropertySettings();
         }
 
@@ -585,7 +577,7 @@ namespace cefsharptest
 
         private void ChromeBrowser_LoadError(object sender, LoadErrorEventArgs e)
         {
-            Debug.WriteLine("Error Loading Page:-" + e.ErrorText);               //ERR_BLOCKED_BY_RESPONSE, likely missing audio/video codec error for youtube.com?
+            Debug.WriteLine("Error Loading Page:-" + e.ErrorText);  //ERR_BLOCKED_BY_RESPONSE, likely missing audio/video codec error for youtube.com?
             if (linkType == LinkType.local || e.ErrorCode == CefErrorCode.Aborted || e.ErrorCode == (CefErrorCode)(-27))//e.ErrorCode == CefErrorCode.NameNotResolved || e.ErrorCode == CefErrorCode.InternetDisconnected   || e.ErrorCode == CefErrorCode.NetworkAccessDenied || e.ErrorCode == CefErrorCode.NetworkIoSuspended)
             {
                 //ignoring some error's.
@@ -624,7 +616,7 @@ namespace cefsharptest
 
         #region cef audio
 
-        private async void Timer_Tick1(object sender, EventArgs e)
+        private void Timer_Tick1(object sender, EventArgs e)
         {
             try
             {
@@ -797,14 +789,9 @@ namespace cefsharptest
 
         #region window
 
-        [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         private void Form1_Load(object sender, EventArgs e)
         {
-            if (linkType != LinkType.deviantart)
-            {
-                ShowWindow(this.Handle, 0); //hiding other windows, lively is picking up the chromium rendering window.
-            }
+
         }
 
         private void Form1_FormClosing_1(object sender, FormClosingEventArgs e)
@@ -812,29 +799,12 @@ namespace cefsharptest
             if (enableCSCore)
             {
                 StopCSCore(); 
-                //chromeBrowser.JavascriptObjectRepository.UnRegister("boundAsync");
-                //chromeBrowser.JavascriptObjectRepository.UnRegisterAll();
             }
-        }
-
-
-        private static UInt32 SPI_SETDESKWALLPAPER = 20;
-        private static UInt32 SPIF_UPDATEINIFILE = 0x1;
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        [return: MarshalAs(UnmanagedType.I4)]
-        private static extern Int32 SystemParametersInfo(UInt32 uiAction, UInt32 uiParam, String pvParam, UInt32 fWinIni);
-
-        /// <summary>
-        /// Force redraw desktop - clears wallpaper persisting on screen even after close.
-        /// </summary>
-        public static void RefreshDesktop()
-        {
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, null, SPIF_UPDATEINIFILE);
         }
 
         private void Form1_Shown(object sender, EventArgs e)
         {
-
+            this.Hide();
         }
 
         #endregion //window

@@ -42,7 +42,8 @@ namespace cefsharptest
             try
             {
                 //Deleting old CEF logfile if any.
-                File.Delete(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug.log"));
+                File.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Lively Wallpaper", "Cef", "logfile.txt"));
             }
             catch { }
 
