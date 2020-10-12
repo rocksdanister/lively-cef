@@ -54,7 +54,8 @@ namespace cefsharptest
         private IWaveSource _source;
         private LineSpectrum _lineSpectrum;
         private PitchShifter _pitchShifter;
-        private static readonly System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+        private static readonly System.Windows.Forms.Timer wasapiAudioTimer = new System.Windows.Forms.Timer();
+        private static readonly System.Windows.Forms.Timer systemMonitorTimer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
 
         public Form1()
@@ -74,9 +75,9 @@ namespace cefsharptest
             {
                 CSCoreInit(); //audio analyser  
                 //timer, audio sends audio data etc
-                timer.Interval = 33; //30fps
-                timer.Tick += Timer_Tick1;
-                timer.Start();
+                wasapiAudioTimer.Interval = 33; //30fps
+                wasapiAudioTimer.Tick += Timer_Tick1;
+                wasapiAudioTimer.Start();
             }
 
             try
@@ -245,11 +246,11 @@ namespace cefsharptest
                         {
                             break;
                         }
-                        else if (String.Equals(text, "Reload", StringComparison.OrdinalIgnoreCase))
+                        else if (String.Equals(text, "lively:reload", StringComparison.OrdinalIgnoreCase))
                         {
                             chromeBrowser.Reload(true);
                         }
-                        else if (Contains(text, "lively-customise", StringComparison.OrdinalIgnoreCase))
+                        else if (Contains(text, "lively:customise", StringComparison.OrdinalIgnoreCase))
                         {
                             try
                             {
@@ -260,7 +261,7 @@ namespace cefsharptest
                                 //todo: logging.
                             }
                         }
-                        else if(Contains(text, "lively-playback", StringComparison.OrdinalIgnoreCase))
+                        else if(Contains(text, "lively:playback", StringComparison.OrdinalIgnoreCase))
                         {
                             //not used currently, cannot unpause after puase.
                             await PlaybackWallpaperIPC(text);
@@ -755,8 +756,8 @@ namespace cefsharptest
 
         private static void StopTimer()
         {
-            if (timer != null)
-                timer.Stop();
+            if (wasapiAudioTimer != null)
+                wasapiAudioTimer.Stop();
         }
         private void StopCSCore()
         {
