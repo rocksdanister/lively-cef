@@ -22,6 +22,7 @@ using System.Text.RegularExpressions;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Drawing;
+using System.Web;
 
 namespace cefsharptest
 {
@@ -33,6 +34,7 @@ namespace cefsharptest
         private enum LinkType
         {
             shadertoy,
+            yt,
             online,
             local,
             deviantart
@@ -150,9 +152,17 @@ namespace cefsharptest
             }
             else if (opts.Type.Equals("online", StringComparison.OrdinalIgnoreCase))
             {
+                string ytVideoId;
                 if (path.Contains("shadertoy.com/view"))
                 {
                     linkType = LinkType.shadertoy;
+                    path = ShadertoyURLtoEmbedLink(path);
+                }
+                else if((ytVideoId = GetYouTubeVideoIdFromUrl(htmlPath)) != "")
+                {
+                    linkType = LinkType.yt;
+                    path = "https://www.youtube.com/embed/" + ytVideoId +
+                        "?version=3&rel=0&autoplay=1&loop=1&controls=0&playlist=" + ytVideoId;
                 }
                 else
                 {
@@ -261,6 +271,42 @@ namespace cefsharptest
                                 //todo: logging.
                             }
                         }
+                        else if(Contains(text, "lively:perfcounter", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                var msg = text.Split(' ');
+                                if (chromeBrowser != null)
+                                {
+                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame)
+                                    {
+                                        if (float.TryParse(msg[1], out float cpu) &&
+                                        float.TryParse(msg[2], out float gpu) &&
+                                        float.TryParse(msg[3], out float ram))
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelySystemInformation", cpu, gpu, ram);
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                        else if(Contains(text, "lively:nowplaying", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                var submsg = text.Substring(18);
+                                var msg = submsg.Split('\"');
+                                if (chromeBrowser != null)
+                                {
+                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame)
+                                    {
+                                        chromeBrowser.ExecuteScriptAsync("livelyNowPlaying", msg[1], msg[3]);
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
                         else if(Contains(text, "lively:playback", StringComparison.OrdinalIgnoreCase))
                         {
                             //not used currently, cannot unpause after puase.
@@ -269,9 +315,9 @@ namespace cefsharptest
                     }
                 });    
             }
-            catch
+            catch(Exception e)
             {
-                //todo: forward errors to main app.
+                Console.WriteLine("ipc parse error=>" + e.Message);
             }
             finally
             {
@@ -476,8 +522,12 @@ namespace cefsharptest
             if (linkType == LinkType.shadertoy)
             {
                 chromeBrowser = new ChromiumWebBrowser(String.Empty);
-                path = ShadertoyURLtoEmbedLink(path);
                 chromeBrowser.LoadHtml(path);
+            }
+            else if(linkType == LinkType.yt)
+            {
+                chromeBrowser = new ChromiumWebBrowser(String.Empty);
+                chromeBrowser.Load(path);
             }
             else
             {
@@ -809,6 +859,57 @@ namespace cefsharptest
         }
 
         #endregion //window
+
+        #region helpers
+
+        //ref: https://stackoverflow.com/questions/39777659/extract-the-video-id-from-youtube-url-in-net
+        private static string GetYouTubeVideoIdFromUrl(string url)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
+            {
+                try
+                {
+                    uri = new UriBuilder("http", url).Uri;
+                }
+                catch
+                {
+                    // invalid url
+                    return "";
+                }
+            }
+
+            string host = uri.Host;
+            string[] youTubeHosts = { "www.youtube.com", "youtube.com", "youtu.be", "www.youtu.be" };
+            if (!youTubeHosts.Contains(host))
+                return "";
+
+            var query = HttpUtility.ParseQueryString(uri.Query);
+            if (query.AllKeys.Contains("v"))
+            {
+                return Regex.Match(query["v"], @"^[a-zA-Z0-9_-]{11}$").Value;
+            }
+            else if (query.AllKeys.Contains("u"))
+            {
+                // some urls have something like "u=/watch?v=AAAAAAAAA16"
+                return Regex.Match(query["u"], @"/watch\?v=([a-zA-Z0-9_-]{11})").Groups[1].Value;
+            }
+            else
+            {
+                // remove a trailing forward space
+                var last = uri.Segments.Last().Replace("/", "");
+                if (Regex.IsMatch(last, @"^v=[a-zA-Z0-9_-]{11}$"))
+                    return last.Replace("v=", "");
+
+                string[] segments = uri.Segments;
+                if (segments.Length > 2 && segments[segments.Length - 2] != "v/" && segments[segments.Length - 2] != "watch/")
+                    return "";
+
+                return Regex.Match(last, @"^[a-zA-Z0-9_-]{11}$").Value;
+            }
+        }
+
+        #endregion //helpers
 
     }
 }
