@@ -61,6 +61,10 @@ namespace cefsharptest
         private static readonly System.Windows.Forms.Timer systemMonitorTimer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
 
+        //launcher
+        private LauncherData _launcherData;
+        private string LauncherApps;
+
         public Form1()
         {
             InitializeComponent();
@@ -93,6 +97,13 @@ namespace cefsharptest
                 //can be non-customisable wp, file missing/corrupt error: skip.
             }
             InitializeChromium();
+
+            _launcherData = new LauncherData(LauncherApps);
+            //chromeBrowser.RegisterAsyncJsObject("launcherObj", _launcherData);
+
+            CefSharpSettings.LegacyJavascriptBindingEnabled = true;
+            CefSharpSettings.WcfEnabled = true;
+            chromeBrowser.JavascriptObjectRepository.Register("launcherObj", _launcherData, isAsync: false, options: BindingOptions.DefaultBinder);
         }
 
         #endregion //init
@@ -142,6 +153,11 @@ namespace cefsharptest
             Default = 100,
             HelpText = "Audio volume")]
             public int Volume { get; set; }
+
+            [Option("launcher",
+            Required = false,
+            HelpText = "Launcher Apps")]
+            public string Launcher { get; set; }
         }
 
         private void RunOptions(Options opts)
@@ -153,6 +169,7 @@ namespace cefsharptest
             debugPort = opts.DebugPort;
             cachePath = opts.CachePath;
             cefVolume = opts.Volume;
+            LauncherApps = opts.Launcher;
 
             if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
             {

@@ -91,6 +91,7 @@
     <Compile Include="Visualization\ScalingStrategy.cs" />
     <Compile Include="Visualization\SpectrumBase.cs" />
     <Compile Include="Visualization\VoicePrint3DSpectrum.cs" />
+    <Compile Include="Widgets\LauncherData.cs" />
     <Compile Include="Widgets\WidgetData.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
