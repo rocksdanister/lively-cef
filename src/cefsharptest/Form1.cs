@@ -43,6 +43,7 @@ namespace cefsharptest
         private string originalUrl;
         private string debugPort;
         private string cachePath;
+        private int cefVolume;
         private bool enableCSCore = false;
         public static string htmlPath = null;
         public static string livelyPropertyPath = null;
@@ -135,6 +136,12 @@ namespace cefsharptest
             Required = false,
             HelpText = "disk cache path")]
             public string CachePath { get; set; }
+
+            [Option("volume",
+            Required = false,
+            Default = 100,
+            HelpText = "Audio volume")]
+            public int Volume { get; set; }
         }
 
         private void RunOptions(Options opts)
@@ -145,6 +152,7 @@ namespace cefsharptest
             enableCSCore = opts.AudioAnalyse;
             debugPort = opts.DebugPort;
             cachePath = opts.CachePath;
+            cefVolume = opts.Volume;
 
             if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
             {
@@ -508,7 +516,10 @@ namespace cefsharptest
 
             //ref: https://magpcss.org/ceforum/apidocs3/projects/(default)/_cef_browser_settings_t.html#universal_access_from_file_urls
             //settings.CefCommandLineArgs.Add("allow-universal-access-from-files", "1"); //UNSAFE, Testing Only!
-            //settings.CefCommandLineArgs.Add("--mute-audio", "1");
+            if(cefVolume == 0)
+            {
+                settings.CefCommandLineArgs.Add("--mute-audio", "1");
+            }
             //auto-play video without it being muted (default cef behaviour is overriden.)
             settings.CefCommandLineArgs.Add("autoplay-policy", "no-user-gesture-required");
 
