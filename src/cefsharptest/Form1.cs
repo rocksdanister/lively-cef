@@ -745,7 +745,7 @@ namespace cefsharptest
         {
             StopCSCore();
             //open the default device 
-            _soundIn = new WasapiLoopbackCapture();
+            _soundIn = new WasapiLoopbackCapture(100, new WaveFormat(48000, 24, 2));
             //Our loopback capture opens the default render device by default so the following is not needed
             //_soundIn.Device = MMDeviceEnumerator.DefaultAudioEndpoint(DataFlow.Render, Role.Console);
             _soundIn.Initialize();
