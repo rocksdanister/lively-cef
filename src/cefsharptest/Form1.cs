@@ -76,11 +76,20 @@ namespace cefsharptest
 
             if (enableCSCore)
             {
-                CSCoreInit(); //audio analyser  
                 //timer, audio sends audio data etc
                 wasapiAudioTimer.Interval = 33; //30fps
                 wasapiAudioTimer.Tick += Timer_Tick1;
-                wasapiAudioTimer.Start();
+
+                try
+                {
+                    //audio analyser  
+                    CSCoreInit();
+                    wasapiAudioTimer.Start();
+                }
+                catch
+                {
+                    Console.WriteLine("CSCORE error: Failed to start audio capture");
+                }
             }
 
             try
@@ -743,9 +752,10 @@ namespace cefsharptest
         #region cscore
         private void CSCoreInit()
         {
-            StopCSCore();
+            //StopCSCore();
             //open the default device 
             _soundIn = new WasapiLoopbackCapture(100, new WaveFormat(48000, 24, 2));
+
             //Our loopback capture opens the default render device by default so the following is not needed
             //_soundIn.Device = MMDeviceEnumerator.DefaultAudioEndpoint(DataFlow.Render, Role.Console);
             _soundIn.Initialize();
@@ -820,6 +830,7 @@ namespace cefsharptest
             if (wasapiAudioTimer != null)
                 wasapiAudioTimer.Stop();
         }
+
         private void StopCSCore()
         {
 
