@@ -23,6 +23,8 @@ using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Drawing;
 using System.Web;
+using Newtonsoft.Json;
+using livelywpf.Helpers;
 
 namespace cefsharptest
 {
@@ -45,11 +47,15 @@ namespace cefsharptest
         private string cachePath;
         private int cefVolume;
         private bool enableCSCore = false;
+        private bool enableSysInfo = false;
         public static string htmlPath = null;
         public static string livelyPropertyPath = null;
         public static bool livelyPropertyRestoreDisabled = false;
         private string path = null;
         private readonly string[] args = Environment.GetCommandLineArgs();
+
+        //hw monitor
+        private readonly  HWUsageMonitor hwMonitor = null;
 
         //cscore
         private WasapiCapture _soundIn;
@@ -58,7 +64,7 @@ namespace cefsharptest
         private LineSpectrum _lineSpectrum;
         private PitchShifter _pitchShifter;
         private static readonly System.Windows.Forms.Timer wasapiAudioTimer = new System.Windows.Forms.Timer();
-        private static readonly System.Windows.Forms.Timer systemMonitorTimer = new System.Windows.Forms.Timer();
+        //private static readonly System.Windows.Forms.Timer systemMonitorTimer = new System.Windows.Forms.Timer();
         public static ChromiumWebBrowser chromeBrowser;
 
         public Form1()
@@ -74,6 +80,19 @@ namespace cefsharptest
             .WithParsed(RunOptions)
             .WithNotParsed(HandleParseError);
 
+            try
+            {
+                // livelyPropertyPath loaded from commandline arg.
+                WidgetData.LoadLivelyProperties(livelyPropertyPath);
+            }
+            catch
+            {
+                //can be non-customisable wp, file missing/corrupt error: skip.
+            }
+
+            InitializeChromium();
+
+            //Initialize chromium before starting additioanl services.
             if (enableCSCore)
             {
                 //timer, audio sends audio data etc
@@ -92,16 +111,25 @@ namespace cefsharptest
                 }
             }
 
+            if (enableSysInfo)
+            {
+                //todo: run this service in main lively pgm instead and pass msg via ipc.
+                hwMonitor = new HWUsageMonitor();
+                hwMonitor.HWMonitor += Instance_HWMonitor;
+                hwMonitor.StartService();
+            }
+        }
+
+        private void Instance_HWMonitor(object sender, livelywpf.Helpers.HWUsageMonitorEventArgs e)
+        {
             try
             {
-                // livelyPropertyPath loaded from commandline arg.
-                WidgetData.LoadLivelyProperties(livelyPropertyPath);
+                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                {
+                    Form1.chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
+                }
             }
-            catch
-            {
-                //can be non-customisable wp, file missing/corrupt error: skip.
-            }
-            InitializeChromium();
+            catch { }
         }
 
         #endregion //init
@@ -151,6 +179,12 @@ namespace cefsharptest
             Default = 100,
             HelpText = "Audio volume")]
             public int Volume { get; set; }
+
+            [Option("system-information",
+            Default = false,
+            Required = false,
+            HelpText = "Lively hw monitor api")]
+            public bool SysInfo { get; set; }
         }
 
         private void RunOptions(Options opts)
@@ -159,6 +193,7 @@ namespace cefsharptest
             htmlPath = path;
             originalUrl = opts.Url;
             enableCSCore = opts.AudioAnalyse;
+            enableSysInfo = opts.SysInfo;
             debugPort = opts.DebugPort;
             cachePath = opts.CachePath;
             cefVolume = opts.Volume;
@@ -872,6 +907,12 @@ namespace cefsharptest
             if (enableCSCore)
             {
                 StopCSCore(); 
+            }
+
+            if(enableSysInfo)
+            {
+                hwMonitor.HWMonitor -= Instance_HWMonitor;
+                hwMonitor.StopService();
             }
         }
 
