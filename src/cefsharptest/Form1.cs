@@ -111,6 +111,7 @@ namespace cefsharptest
                 }
             }
 
+            enableSysInfo = linkType == LinkType.local && enableSysInfo;
             if (enableSysInfo)
             {
                 //todo: run this service in main lively pgm instead and pass msg via ipc.
