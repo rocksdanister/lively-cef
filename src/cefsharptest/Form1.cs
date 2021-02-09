@@ -90,9 +90,11 @@ namespace cefsharptest
                 //can be non-customisable wp, file missing/corrupt error: skip.
             }
 
+            //Initialize chromium.
             InitializeChromium();
 
-            //Initialize chromium before starting additioanl services.
+            //Start services after Initialize chromium.
+            enableCSCore = linkType == LinkType.local && enableCSCore;
             if (enableCSCore)
             {
                 //timer, audio sends audio data etc
@@ -547,6 +549,7 @@ namespace cefsharptest
                 settings.RegisterScheme(new CefCustomScheme
                 {
                     SchemeName = "localfolder",
+                    IsFetchEnabled = true,
                     //DomainName = "html",//Path.GetFileName(path),//"cefsharp",
                     SchemeHandlerFactory = new FolderSchemeHandlerFactory
                     (
@@ -640,10 +643,13 @@ namespace cefsharptest
                         string uiElementType = item.Value["type"].ToString();
                         if (!uiElementType.Equals("button", StringComparison.OrdinalIgnoreCase) && !uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (uiElementType.Equals("slider", StringComparison.OrdinalIgnoreCase) ||
-                                uiElementType.Equals("dropdown", StringComparison.OrdinalIgnoreCase))
+                            if (uiElementType.Equals("dropdown", StringComparison.OrdinalIgnoreCase))
                             {
                                 Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (int)item.Value["value"]);
+                            }
+                            else if (uiElementType.Equals("slider", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", item.Key, (double)item.Value["value"]);
                             }
                             else if (uiElementType.Equals("folderDropdown", StringComparison.OrdinalIgnoreCase))
                             {
