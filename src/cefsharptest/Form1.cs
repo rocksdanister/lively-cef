@@ -53,6 +53,7 @@ namespace cefsharptest
         public static bool livelyPropertyRestoreDisabled = false;
         private string path = null;
         private readonly string[] args = Environment.GetCommandLineArgs();
+        private Rectangle preferredWinSize = Rectangle.Empty;
 
         //hw monitor
         private readonly  HWUsageMonitor hwMonitor = null;
@@ -72,13 +73,19 @@ namespace cefsharptest
             InitializeComponent();
             this.WindowState = FormWindowState.Normal;
             this.StartPosition = FormStartPosition.Manual;
+            //this.Location = new Point(-9999, 0);
+
+            CommandLine.Parser.Default.ParseArguments<Options>(args)
+                .WithParsed(RunOptions)
+                .WithNotParsed(HandleParseError);
+
+            if (preferredWinSize != Rectangle.Empty)
+            {
+                this.Size = new Size(preferredWinSize.Width, preferredWinSize.Height);
+            }
 
             mainForm = this;
             ListenToParent(); //stdin listen pipe.
-
-            CommandLine.Parser.Default.ParseArguments<Options>(args)
-            .WithParsed(RunOptions)
-            .WithNotParsed(HandleParseError);
 
             try
             {
@@ -162,6 +169,11 @@ namespace cefsharptest
             HelpText = "Wallpaper running display.")]
             public string DisplayDevice { get; set; }
 
+            [Option("geometry",
+            Required = false,
+            HelpText = "Window size (WxH).")]
+            public string Geometry { get; set; }
+
             [Option("audio",
             Default = false,
             HelpText = "Analyse system audio(visualiser data.)")]
@@ -200,6 +212,16 @@ namespace cefsharptest
             debugPort = opts.DebugPort;
             cachePath = opts.CachePath;
             cefVolume = opts.Volume;
+
+            if (opts.Geometry != null)
+            {
+                var msg = opts.Geometry.Split('x');
+                if (msg.Length >= 2 && int.TryParse(msg[0], out int width) && int.TryParse(msg[1], out int height))
+                {
+                    //todo: send pos also.
+                    preferredWinSize = new Rectangle(0, 0, width, height);
+                }
+            }
 
             if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
             {
