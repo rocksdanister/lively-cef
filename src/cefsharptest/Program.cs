@@ -21,26 +21,6 @@ namespace cefsharptest
         {
             try
             {
-                bool onlyInstance = false;
-                Mutex mutex = new Mutex(true, "LIVELY:DESKTOPWALLPAPERSYSTEM", out onlyInstance);
-                if (!onlyInstance)
-                {
-
-                }
-                else
-                {
-                    MessageBox.Show("Lively is not running, Exiting!", "Cef: Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    Environment.Exit(1); //msgloop not ready 
-                }
-
-            }
-            catch (AbandonedMutexException e)
-            {
-                System.Diagnostics.Debug.WriteLine(e.Message);
-            }
-
-            try
-            {
                 //Deleting old CEF logfile if any.
                 File.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Lively Wallpaper", "Cef", "logfile.txt"));
