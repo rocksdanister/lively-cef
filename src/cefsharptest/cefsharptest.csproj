@@ -96,6 +96,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="API\IpcMessage.cs" />
+    <Compile Include="API\IpcMessageConverter.cs" />
     <Compile Include="Cef\CefMenuHandler.cs" />
     <Compile Include="Cef\CefPopUpHandle.cs" />
     <Compile Include="Cef\DownloadHandler.cs" />
@@ -120,6 +122,7 @@
     <Compile Include="Visualization\SpectrumBase.cs" />
     <Compile Include="Visualization\VoicePrint3DSpectrum.cs" />
     <Compile Include="Widgets\HWUsageMonitor.cs" />
+    <Compile Include="Widgets\NowPlaying.cs" />
     <Compile Include="Widgets\SystemInfo.cs" />
     <Compile Include="Widgets\WidgetData.cs" />
     <EmbeddedResource Include="Form1.resx">

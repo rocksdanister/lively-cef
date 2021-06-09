@@ -25,6 +25,8 @@ using System.Drawing;
 using System.Web;
 using Newtonsoft.Json;
 using livelywpf.Helpers;
+using livelywpf.Core.API;
+using Newtonsoft.Json.Linq;
 
 namespace cefsharptest
 {
@@ -136,7 +138,7 @@ namespace cefsharptest
             {
                 if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                 {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
+                    chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
                 }
             }
             catch { }
@@ -262,43 +264,6 @@ namespace cefsharptest
             livelyPropertyPath = opts.Properties;
         }
 
-        [Obsolete("lively main pgm is handling the livelyproperties I/O operatons instead.")]
-        private void LivelyPropertiesInit(Options opts)
-        {
-            try
-            {
-                if (File.Exists(Path.Combine(Directory.GetParent(htmlPath).ToString(), "LivelyProperties.json")) && linkType == LinkType.local)
-                {
-                    //extract last digits of the Screen class DeviceName, eg: \\.\DISPLAY4 -> 4
-                    var result = Regex.Match(opts.DisplayDevice, @"\d+$", RegexOptions.RightToLeft);
-                    if (result.Success)
-                    {
-                    //Create a directory with the wp foldername in SaveData/wpdata/, copy livelyproperties.json into this.
-                    //Further modifications are done to the copy file.
-                    var basePath = Path.Combine(opts.Properties, new System.IO.DirectoryInfo(Directory.GetParent(htmlPath).ToString()).Name);
-                    Directory.CreateDirectory(Path.Combine(basePath, result.Value));
-                    if (!File.Exists(Path.Combine(basePath, result.Value, "LivelyProperties.json")))
-                        File.Copy(Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json"), Path.Combine(basePath, result.Value, "LivelyProperties.json"));
-
-                    livelyPropertyPath = Path.Combine(basePath, result.Value, "LivelyProperties.json");
-                    }
-                    else
-                    {
-                        //fallback, use the original file (restore feature disabled.)
-                        livelyPropertyPath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
-                        livelyPropertyRestoreDisabled = true;
-                    }
-                }
-            }
-            catch
-            {
-                //fallback, use the original file (restore feature disabled.)
-                livelyPropertyPath = Path.Combine(Path.GetDirectoryName(Form1.htmlPath), "LivelyProperties.json");
-                livelyPropertyRestoreDisabled = true;
-            }
-
-        }
-
         private void HandleParseError(IEnumerable<Error> errs)
         {
             if (Application.MessageLoop)
@@ -321,78 +286,106 @@ namespace cefsharptest
             {
                 await Task.Run(async () =>
                 {
+                    var close = false;
                     while (true) // Loop runs only once per line received
                     {
                         string text = await Console.In.ReadLineAsync();
-                        if (String.IsNullOrEmpty(text))
+                        if (string.IsNullOrEmpty(text))
                         {
                             //When the redirected stream is closed, a null line is sent to the event handler. 
                             break;
                         }
-                        else if (String.Equals(text, "lively:terminate", StringComparison.OrdinalIgnoreCase))
+                        else
                         {
-                            break;
-                        }
-                        else if (String.Equals(text, "lively:reload", StringComparison.OrdinalIgnoreCase))
-                        {
-                            chromeBrowser.Reload(true);
-                        }
-                        else if (Contains(text, "lively:customise", StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
+                            var obj = JsonConvert.DeserializeObject<IpcMessage>(text, new JsonSerializerSettings() { Converters = { new IpcMessageConverter() } });
+                            switch (obj.Type)
                             {
-                                LivelyPropertiesMsg(text);
-                            }
-                            catch
-                            {
-                                //todo: logging.
-                            }
-                        }
-                        else if(Contains(text, "lively:perfcounter", StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
-                            {
-                                var msg = text.Split(' ');
-                                if (chromeBrowser != null)
-                                {
-                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame)
+                                case MessageType.cmd_reload:
+                                    chromeBrowser.Reload(true);
+                                    break;
+                                case MessageType.lp_slider:
+                                    var sl = (LivelySlider)obj;
+                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", sl.Name, sl.Value);
+                                    break;
+                                case MessageType.lp_textbox:
+                                    var tb = (LivelyTextBox)obj;
+                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", tb.Name, tb.Value);
+                                    break;
+                                case MessageType.lp_dropdown:
+                                    var dd = (LivelyDropdown)obj;
+                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", dd.Name, dd.Value);
+                                    break;
+                                case MessageType.lp_cpicker:
+                                    var cp = (LivelyColorPicker)obj;
+                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cp.Name, cp.Value);
+                                    break;
+                                case MessageType.lp_chekbox:
+                                    var cb = (LivelyCheckbox)obj;
+                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cb.Name, cb.Value);
+                                    break;
+                                case MessageType.lp_fdropdown:
+                                    var fd = (LivelyFolderDropdown)obj;
+                                    var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), fd.Value);
+                                    if (File.Exists(filePath))
                                     {
-                                        if (float.TryParse(msg[1], out float cpu) &&
-                                        float.TryParse(msg[2], out float gpu) &&
-                                        float.TryParse(msg[3], out float ram))
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                        fd.Name,
+                                        fd.Value);
+                                    }
+                                    else
+                                    {
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                        fd.Name,
+                                        null); //or custom msg
+                                    }
+                                    break;
+                                case MessageType.lp_button:
+                                    var btn = (LivelyButton)obj;
+                                    if (btn.IsDefault)
+                                    {
+                                        try
                                         {
-                                            chromeBrowser.ExecuteScriptAsync("livelySystemInformation", cpu, gpu, ram);
+                                            //load new file.
+                                            WidgetData.LoadLivelyProperties(livelyPropertyPath);
+                                            //restore new property values.
+                                            RestoreLivelyPropertySettings();
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            MessageBox.Show(ex.ToString(), "Lively Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                         }
                                     }
-                                }
-                            }
-                            catch { }
-                        }
-                        else if(Contains(text, "lively:nowplaying", StringComparison.OrdinalIgnoreCase))
-                        {
-                            try
-                            {
-                                var submsg = text.Substring(18);
-                                var msg = submsg.Split('\"');
-                                if (chromeBrowser != null)
-                                {
+                                    else
+                                    {
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", btn.Name, true);
+                                    }
+                                    break;
+                                case MessageType.lsp_perfcntr:
+                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                    {
+                                        chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(((LivelySystemInformation)obj).Info, Formatting.Indented));
+                                    }
+                                    break;
+                                case MessageType.lsp_nowplaying:
                                     if (chromeBrowser.CanExecuteJavascriptInMainFrame)
                                     {
-                                        chromeBrowser.ExecuteScriptAsync("livelyNowPlaying", msg[1], msg[3]);
+                                        chromeBrowser.ExecuteScriptAsync("livelyCurrentTrack", JsonConvert.SerializeObject(((LivelySystemNowPlaying)obj).Info, Formatting.Indented));
                                     }
-                                }
+                                    break;
+                                case MessageType.cmd_close:
+                                    close = true;
+                                    break;
                             }
-                            catch { }
-                        }
-                        else if(Contains(text, "lively:playback", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //not used currently, cannot unpause after puase.
-                            await PlaybackWallpaperIPC(text);
+
+                            if (close)
+                            {
+                                break;
+                            }
                         }
                     }
-                });    
+                });
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine("ipc parse error=>" + e.Message);
             }
@@ -426,93 +419,6 @@ namespace cefsharptest
             {
                 //id = await chromeBrowser.ExecuteDevToolsMethodAsync(0, "Page.setWebLifecycleState", new Dictionary<string, object> {{ "state", "frozen" }});
                 await chromeBrowser.ExecuteDevToolsMethodAsync(0, "Debugger.pause");
-            }
-        }
-
-        /// <summary>
-        /// ipc message from main program, to pass onto cefsharp instance.
-        /// ref: https://github.com/rocksdanister/lively/wiki/Web-Guide-IV-:-Interaction
-        /// </summary>
-        /// <param name="val"></param>
-        private static void LivelyPropertiesMsg(string val)
-        {
-            var msg = val.Split(' ');
-            if (msg.Length < 4)
-                return;
-
-            string uiElementType = msg[1];
-            if (uiElementType.Equals("dropdown", StringComparison.OrdinalIgnoreCase))
-            {
-                if (int.TryParse(msg[3], out int value))
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", msg[2], value);
-                }
-            }
-            else if(uiElementType.Equals("slider", StringComparison.OrdinalIgnoreCase))
-            {
-                //MessageBox.Show(msg[3] + " " + double.TryParse(msg[3], out double test));
-                if (double.TryParse(msg[3], out double value))
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", msg[2], value);
-                }
-            }
-            else if (uiElementType.Equals("folderDropdown", StringComparison.OrdinalIgnoreCase))
-            {
-                var sIndex = val.IndexOf("\"") + 1;
-                var lIndex = val.LastIndexOf("\"") - 1;
-                var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), val.Substring(sIndex, lIndex - sIndex + 1));
-                if (File.Exists(filePath))
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
-                    msg[2],
-                    val.Substring(sIndex, lIndex - sIndex + 1));
-                }
-                else
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
-                    msg[2],
-                    null); //or custom msg
-                }
-            }
-            else if (uiElementType.Equals("checkbox", StringComparison.OrdinalIgnoreCase))
-            {
-                if(bool.TryParse(msg[3], out bool value))
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", msg[2], value);
-                }
-            }
-            else if (uiElementType.Equals("color", StringComparison.OrdinalIgnoreCase))
-            {
-                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", msg[2], msg[3]);
-            }
-            else if(uiElementType.Equals("textbox", StringComparison.OrdinalIgnoreCase))
-            {
-                var sIndex = val.IndexOf("\"") + 1;
-                var lIndex = val.LastIndexOf("\"") - 1;
-                Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", 
-                    msg[2], 
-                    val.Substring(sIndex, lIndex - sIndex + 1));
-            }
-            else if(uiElementType.Equals("button", StringComparison.OrdinalIgnoreCase))
-            {
-                if(msg[2].Equals("lively_default_settings_reload", StringComparison.OrdinalIgnoreCase))
-                {
-                    try
-                    {
-                        //load new file.
-                        WidgetData.LoadLivelyProperties(livelyPropertyPath);
-                        //restore new property values.
-                        RestoreLivelyPropertySettings();
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show(ex.ToString(), "Lively Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-                else
-                {
-                    Form1.chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", msg[2], true);
-                }
             }
         }
 
