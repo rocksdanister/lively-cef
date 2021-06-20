@@ -57,6 +57,8 @@ namespace cefsharptest
         private readonly string[] args = Environment.GetCommandLineArgs();
         private Rectangle preferredWinSize = Rectangle.Empty;
 
+        public static bool VerboseLog = false;
+
         //hw monitor
         private readonly  HWUsageMonitor hwMonitor = null;
 
@@ -202,6 +204,11 @@ namespace cefsharptest
             Required = false,
             HelpText = "Lively hw monitor api")]
             public bool SysInfo { get; set; }
+
+            [Option("verbose-log",
+            Required = false,
+            HelpText = "Verbose Logging")]
+            public bool VerboseLog { get; set; }
         }
 
         private void RunOptions(Options opts)
@@ -214,6 +221,7 @@ namespace cefsharptest
             debugPort = opts.DebugPort;
             cachePath = opts.CachePath;
             cefVolume = opts.Volume;
+            VerboseLog = opts.VerboseLog;
 
             if (opts.Geometry != null)
             {
@@ -286,10 +294,14 @@ namespace cefsharptest
             {
                 await Task.Run(async () =>
                 {
-                    var close = false;
                     while (true) // Loop runs only once per line received
                     {
                         string text = await Console.In.ReadLineAsync();
+                        if (VerboseLog)
+                        {
+                            Console.WriteLine("Ipc msg: {0}", text);
+                        }
+
                         if (string.IsNullOrEmpty(text))
                         {
                             //When the redirected stream is closed, a null line is sent to the event handler. 
@@ -297,89 +309,97 @@ namespace cefsharptest
                         }
                         else
                         {
-                            var obj = JsonConvert.DeserializeObject<IpcMessage>(text, new JsonSerializerSettings() { Converters = { new IpcMessageConverter() } });
-                            switch (obj.Type)
+                            try
                             {
-                                case MessageType.cmd_reload:
-                                    chromeBrowser.Reload(true);
-                                    break;
-                                case MessageType.lp_slider:
-                                    var sl = (LivelySlider)obj;
-                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", sl.Name, sl.Value);
-                                    break;
-                                case MessageType.lp_textbox:
-                                    var tb = (LivelyTextBox)obj;
-                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", tb.Name, tb.Value);
-                                    break;
-                                case MessageType.lp_dropdown:
-                                    var dd = (LivelyDropdown)obj;
-                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", dd.Name, dd.Value);
-                                    break;
-                                case MessageType.lp_cpicker:
-                                    var cp = (LivelyColorPicker)obj;
-                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cp.Name, cp.Value);
-                                    break;
-                                case MessageType.lp_chekbox:
-                                    var cb = (LivelyCheckbox)obj;
-                                    chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cb.Name, cb.Value);
-                                    break;
-                                case MessageType.lp_fdropdown:
-                                    var fd = (LivelyFolderDropdown)obj;
-                                    var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), fd.Value);
-                                    if (File.Exists(filePath))
-                                    {
-                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
-                                        fd.Name,
-                                        fd.Value);
-                                    }
-                                    else
-                                    {
-                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
-                                        fd.Name,
-                                        null); //or custom msg
-                                    }
-                                    break;
-                                case MessageType.lp_button:
-                                    var btn = (LivelyButton)obj;
-                                    if (btn.IsDefault)
-                                    {
-                                        try
+                                var close = false;
+                                var obj = JsonConvert.DeserializeObject<IpcMessage>(text, new JsonSerializerSettings() { Converters = { new IpcMessageConverter() } });
+                                switch (obj.Type)
+                                {
+                                    case MessageType.cmd_reload:
+                                        chromeBrowser.Reload(true);
+                                        break;
+                                    case MessageType.lp_slider:
+                                        var sl = (LivelySlider)obj;
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", sl.Name, sl.Value);
+                                        break;
+                                    case MessageType.lp_textbox:
+                                        var tb = (LivelyTextBox)obj;
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", tb.Name, tb.Value);
+                                        break;
+                                    case MessageType.lp_dropdown:
+                                        var dd = (LivelyDropdown)obj;
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", dd.Name, dd.Value);
+                                        break;
+                                    case MessageType.lp_cpicker:
+                                        var cp = (LivelyColorPicker)obj;
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cp.Name, cp.Value);
+                                        break;
+                                    case MessageType.lp_chekbox:
+                                        var cb = (LivelyCheckbox)obj;
+                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", cb.Name, cb.Value);
+                                        break;
+                                    case MessageType.lp_fdropdown:
+                                        var fd = (LivelyFolderDropdown)obj;
+                                        var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), fd.Value);
+                                        if (File.Exists(filePath))
                                         {
-                                            //load new file.
-                                            WidgetData.LoadLivelyProperties(livelyPropertyPath);
-                                            //restore new property values.
-                                            RestoreLivelyPropertySettings();
+                                            chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                            fd.Name,
+                                            fd.Value);
                                         }
-                                        catch (Exception ex)
+                                        else
                                         {
-                                            MessageBox.Show(ex.ToString(), "Lively Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                            chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
+                                            fd.Name,
+                                            null); //or custom msg
                                         }
-                                    }
-                                    else
-                                    {
-                                        chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", btn.Name, true);
-                                    }
-                                    break;
-                                case MessageType.lsp_perfcntr:
-                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                                    {
-                                        chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(((LivelySystemInformation)obj).Info, Formatting.Indented));
-                                    }
-                                    break;
-                                case MessageType.lsp_nowplaying:
-                                    if (chromeBrowser.CanExecuteJavascriptInMainFrame)
-                                    {
-                                        chromeBrowser.ExecuteScriptAsync("livelyCurrentTrack", JsonConvert.SerializeObject(((LivelySystemNowPlaying)obj).Info, Formatting.Indented));
-                                    }
-                                    break;
-                                case MessageType.cmd_close:
-                                    close = true;
-                                    break;
-                            }
+                                        break;
+                                    case MessageType.lp_button:
+                                        var btn = (LivelyButton)obj;
+                                        if (btn.IsDefault)
+                                        {
+                                            try
+                                            {
+                                                //load new file.
+                                                WidgetData.LoadLivelyProperties(livelyPropertyPath);
+                                                //restore new property values.
+                                                RestoreLivelyPropertySettings();
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                MessageBox.Show(ex.ToString(), "Lively Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelyPropertyListener", btn.Name, true);
+                                        }
+                                        break;
+                                    case MessageType.lsp_perfcntr:
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(((LivelySystemInformation)obj).Info, Formatting.Indented));
+                                        }
+                                        break;
+                                    case MessageType.lsp_nowplaying:
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame)
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelyCurrentTrack", JsonConvert.SerializeObject(((LivelySystemNowPlaying)obj).Info, Formatting.Indented));
+                                        }
+                                        break;
+                                    case MessageType.cmd_close:
+                                        close = true;
+                                        break;
+                                }
 
-                            if (close)
+                                if (close)
+                                {
+                                    break;
+                                }
+                            }
+                            catch (Exception e)
                             {
-                                break;
+                                Console.WriteLine("Ipc parse error {0}", e.Message);
                             }
                         }
                     }
@@ -387,7 +407,7 @@ namespace cefsharptest
             }
             catch (Exception e)
             {
-                Console.WriteLine("ipc parse error=>" + e.Message);
+                Console.WriteLine("Ipc stdin error {0}", e.Message);
             }
             finally
             {
@@ -548,7 +568,6 @@ namespace cefsharptest
         private void ChromeBrowser_TitleChanged(object sender, TitleChangedEventArgs e)
         {
             mainForm.Invoke((MethodInvoker)(() => mainForm.Text = e.Title));
-
         }
 
         private void ChromeBrowser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
