@@ -27,6 +27,8 @@ using Newtonsoft.Json;
 using livelywpf.Helpers;
 using livelywpf.Core.API;
 using Newtonsoft.Json.Linq;
+using System.Drawing.Imaging;
+using Newtonsoft.Json.Converters;
 
 namespace cefsharptest
 {
@@ -89,7 +91,7 @@ namespace cefsharptest
             }
 
             mainForm = this;
-            ListenToParent(); //stdin listen pipe.
+            ReadFromParent(); //stdin listen pipe.
 
             try
             {
@@ -120,7 +122,11 @@ namespace cefsharptest
                 }
                 catch
                 {
-                    Console.WriteLine("CSCORE error: Failed to start audio capture");
+                    WriteToParent(new LivelyMessageConsole()
+                    {
+                        Category = ConsoleMessageType.error,
+                        Message = "Failed to init cscore."
+                    });
                 }
             }
 
@@ -288,7 +294,7 @@ namespace cefsharptest
         /// std I/O redirect, used to communicate with lively. 
         /// todo:- rewrite with named pipes.
         /// </summary>
-        public async static void ListenToParent()
+        public async static void ReadFromParent()
         {
             try
             {
@@ -299,7 +305,7 @@ namespace cefsharptest
                         string text = await Console.In.ReadLineAsync();
                         if (VerboseLog)
                         {
-                            Console.WriteLine("Ipc msg: {0}", text);
+                            Console.WriteLine(text);
                         }
 
                         if (string.IsNullOrEmpty(text))
@@ -317,6 +323,31 @@ namespace cefsharptest
                                 {
                                     case MessageType.cmd_reload:
                                         chromeBrowser.Reload(true);
+                                        break;
+                                    case MessageType.cmd_screenshot:
+                                        var success = true;
+                                        var scr = (LivelyScreenshotCmd)obj;
+                                        try
+                                        {
+                                            await CaptureScreenshot(scr.FilePath, scr.Format);
+                                        }
+                                        catch (Exception ie)
+                                        {
+                                            success = false;
+                                            WriteToParent(new LivelyMessageConsole()
+                                            {
+                                                Category = ConsoleMessageType.error,
+                                                Message = $"Screenshot capture fail: {ie.Message}"
+                                            });
+                                        }
+                                        finally
+                                        {
+                                            WriteToParent(new LivelyMessageScreenshot()
+                                            {
+                                                FileName = Path.GetFileName(scr.FilePath),
+                                                Success = success
+                                            });      
+                                        }
                                         break;
                                     case MessageType.lp_slider:
                                         var sl = (LivelySlider)obj;
@@ -399,7 +430,11 @@ namespace cefsharptest
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine("Ipc parse error {0}", e.Message);
+                                WriteToParent(new LivelyMessageConsole()
+                                {
+                                    Category = ConsoleMessageType.error,
+                                    Message = $"Ipc parse error: {e.Message}"
+                                });
                             }
                         }
                     }
@@ -407,7 +442,11 @@ namespace cefsharptest
             }
             catch (Exception e)
             {
-                Console.WriteLine("Ipc stdin error {0}", e.Message);
+                WriteToParent(new LivelyMessageConsole()
+                {
+                    Category = ConsoleMessageType.error,
+                    Message = $"Ipc stdin error: {e.Message}",
+                });
             }
             finally
             {
@@ -419,6 +458,11 @@ namespace cefsharptest
                 }
                 Application.Exit();
             }
+        }
+
+        public static void WriteToParent(IpcMessage obj)
+        {
+            Console.WriteLine(JsonConvert.SerializeObject(obj));
         }
 
         //ref: https://github.com/rocksdanister/lively/issues/20
@@ -562,7 +606,11 @@ namespace cefsharptest
 
         private void ChromeBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
         {
-            Console.WriteLine(e.Message);
+            WriteToParent(new LivelyMessageConsole()
+            {
+                Category = ConsoleMessageType.console,
+                Message = e.Message
+            });
         }
 
         private void ChromeBrowser_TitleChanged(object sender, TitleChangedEventArgs e)
@@ -632,7 +680,10 @@ namespace cefsharptest
         private void ChromeBrowser_IsBrowserInitializedChanged1(object sender, EventArgs e)
         {
             //sends cefsharp handle to lively. (this is a subprocess of this application, so simply searching process.mainwindowhandle won't help.)
-            Console.WriteLine("HWND" + chromeBrowser.GetBrowser().GetHost().GetWindowHandle());
+            WriteToParent(new LivelyMessageHwnd()
+            {
+                Hwnd = chromeBrowser.GetBrowser().GetHost().GetWindowHandle().ToInt32()
+            });
         }
 
         private void ChromeBrowser_LoadError(object sender, LoadErrorEventArgs e)
@@ -923,6 +974,25 @@ namespace cefsharptest
                     return "";
 
                 return Regex.Match(last, @"^[a-zA-Z0-9_-]{11}$").Value;
+            }
+        }
+
+        public static async Task CaptureScreenshot(string filePath, ImageFormat format)
+        {
+            byte[] data = await CefSharp.DevTools.DevToolsExtensions.CaptureScreenShotAsPng(chromeBrowser);
+            if (format == ImageFormat.Png)
+            {
+                File.WriteAllBytes(filePath, data);
+            }
+            else
+            {
+                using (var ms = new MemoryStream(data, 0, data.Length))
+                {
+                    using (var image = Image.FromStream(ms, true))
+                    {
+                        image.Save(filePath, format);
+                    }
+                }
             }
         }
 

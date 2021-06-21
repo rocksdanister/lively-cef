@@ -20,6 +20,8 @@ namespace livelywpf.Core.API
                     return jo.ToObject<LivelyReloadCmd>(serializer);
                 case MessageType.cmd_close:
                     return jo.ToObject<LivelyCloseCmd>(serializer);
+                case MessageType.cmd_screenshot:
+                    return jo.ToObject<LivelyScreenshotCmd>(serializer);
                 case MessageType.lsp_perfcntr:
                     return jo.ToObject<LivelySystemInformation>(serializer);
                 case MessageType.lsp_nowplaying:
@@ -38,26 +40,15 @@ namespace livelywpf.Core.API
                     return jo.ToObject<LivelyColorPicker>(serializer);
                 case MessageType.lp_chekbox:
                     return jo.ToObject<LivelyCheckbox>(serializer);
+                case MessageType.msg_console:
+                    return jo.ToObject<LivelyMessageConsole>(serializer);
+                case MessageType.msg_hwnd:
+                    return jo.ToObject<LivelyMessageHwnd>(serializer);
+                case MessageType.msg_screenshot:
+                    return jo.ToObject<LivelyMessageScreenshot>(serializer);
                 default:
                     return null;
             }
-            /*
-            return (MessageType)jo["Type"].Value<int>() switch
-            {
-                MessageType.cmd_reload => jo.ToObject<LivelyReloadCmd>(serializer),
-                MessageType.cmd_close => jo.ToObject<LivelyCloseCmd>(serializer),
-                MessageType.lsp_perfcntr => jo.ToObject<LivelySystemInformation>(serializer),
-                MessageType.lsp_nowplaying => jo.ToObject<LivelySystemNowPlaying>(serializer),
-                MessageType.lp_slider => jo.ToObject<LivelySlider>(serializer),
-                MessageType.lp_textbox => jo.ToObject<LivelyTextBox>(serializer),
-                MessageType.lp_dropdown => jo.ToObject<LivelyDropdown>(serializer),
-                MessageType.lp_fdropdown => jo.ToObject<LivelyFolderDropdown>(serializer),
-                MessageType.lp_button => jo.ToObject<LivelyButton>(serializer),
-                MessageType.lp_cpicker => jo.ToObject<LivelyColorPicker>(serializer),
-                MessageType.lp_chekbox => jo.ToObject<LivelyCheckbox>(serializer),
-                _ => null,
-             };
-            */
         }
 
         public override bool CanWrite

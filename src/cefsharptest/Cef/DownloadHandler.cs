@@ -42,7 +42,7 @@ namespace CefSharp.Example.Handlers
             }
             else if (downloadItem.IsComplete )
             {
-                Console.WriteLine("LOADWP" + downloadItem.FullPath);
+                //Console.WriteLine("LOADWP" + downloadItem.FullPath);
                 //System.Windows.Forms.MessageBox.Show(downloadItem.FullPath);
             }
             /*

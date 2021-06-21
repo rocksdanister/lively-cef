@@ -101,6 +101,8 @@
     <Compile Include="Cef\CefMenuHandler.cs" />
     <Compile Include="Cef\CefPopUpHandle.cs" />
     <Compile Include="Cef\DownloadHandler.cs" />
+    <Compile Include="Cef\DevTools\DevToolsExtensions.cs" />
+    <Compile Include="Cef\DevTools\TaskMethodDevToolsMessageObserver.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>

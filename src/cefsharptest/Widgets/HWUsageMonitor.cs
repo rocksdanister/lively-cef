@@ -109,7 +109,11 @@ namespace livelywpf.Helpers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("PerfCounter: Init fail=>" + ex.Message);
+                cefsharptest.Form1.WriteToParent(new livelywpf.Core.API.LivelyMessageConsole()
+                {
+                    Category = Core.API.ConsoleMessageType.error,
+                    Message = ex.Message
+                });
             }
         }
 
@@ -135,7 +139,11 @@ namespace livelywpf.Helpers
                         }
                         catch (OperationCanceledException)
                         {
-                            Console.WriteLine("PerfCounter: Stopped");
+                            cefsharptest.Form1.WriteToParent(new livelywpf.Core.API.LivelyMessageConsole()
+                            {
+                                Category = Core.API.ConsoleMessageType.log,
+                                Message = "Perf: counter stopped."
+                            });
                             ctsHwMonitor.Dispose();
                             ctsHwMonitor = null;
                             break;

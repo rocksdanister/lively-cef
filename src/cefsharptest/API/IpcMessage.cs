@@ -1,13 +1,20 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System;
 using System.Collections.Generic;
+using System.Drawing.Imaging;
 using System.Text;
 
 namespace livelywpf.Core.API
 {
     public enum MessageType
     {
+        msg_hwnd,
+        msg_console,
+        msg_screenshot,
         cmd_reload,
         cmd_close,
+        cmd_screenshot,
         lsp_perfcntr,
         lsp_nowplaying,
         lp_slider,
@@ -19,13 +26,50 @@ namespace livelywpf.Core.API
         lp_chekbox,
     }
 
+    public enum ConsoleMessageType
+    {
+        log,
+        error,
+        console
+    }
+
     [Serializable]
     public abstract class IpcMessage
     {
+        [JsonProperty(Order = -2)]
         public MessageType Type { get; }
         public IpcMessage(MessageType type)
         {
             this.Type = type;
+        }
+    }
+
+    [Serializable]
+    public class LivelyMessageConsole : IpcMessage
+    {
+        public string Message { get; set; }
+        public ConsoleMessageType Category { get; set; }
+        public LivelyMessageConsole() : base(MessageType.msg_console)
+        {
+        }
+    }
+
+    [Serializable]
+    public class LivelyMessageHwnd : IpcMessage
+    {
+        public long Hwnd { get; set; }
+        public LivelyMessageHwnd() : base(MessageType.msg_hwnd)
+        {
+        }
+    }
+
+    [Serializable]
+    public class LivelyMessageScreenshot : IpcMessage
+    {
+        public string FileName { get; set; }
+        public bool Success { get; set; }
+        public LivelyMessageScreenshot() : base(MessageType.msg_screenshot)
+        {
         }
     }
 
@@ -41,6 +85,16 @@ namespace livelywpf.Core.API
     public class LivelyReloadCmd : IpcMessage
     {
         public LivelyReloadCmd() : base(MessageType.cmd_reload)
+        {
+        }
+    }
+
+    [Serializable]
+    public class LivelyScreenshotCmd : IpcMessage
+    {
+        public string FilePath { get; set; }
+        public ImageFormat Format { get; set; }
+        public LivelyScreenshotCmd() : base(MessageType.cmd_screenshot)
         {
         }
     }
