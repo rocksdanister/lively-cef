@@ -2,7 +2,6 @@
 using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
-using System.Drawing.Imaging;
 using System.Text;
 
 namespace livelywpf.Core.API
@@ -11,6 +10,7 @@ namespace livelywpf.Core.API
     {
         msg_hwnd,
         msg_console,
+        msg_wploaded,
         msg_screenshot,
         cmd_reload,
         cmd_close,
@@ -31,6 +31,14 @@ namespace livelywpf.Core.API
         log,
         error,
         console
+    }
+
+    public enum ScreenshotFormat
+    {
+        jpeg,
+        png,
+        webp,
+        bmp
     }
 
     [Serializable]
@@ -74,6 +82,15 @@ namespace livelywpf.Core.API
     }
 
     [Serializable]
+    public class LivelyMessageWallpaperLoaded : IpcMessage
+    {
+        public bool Success { get; set; }
+        public LivelyMessageWallpaperLoaded() : base(MessageType.msg_wploaded)
+        {
+        }
+    }
+
+    [Serializable]
     public class LivelyCloseCmd : IpcMessage
     {
         public LivelyCloseCmd() : base(MessageType.cmd_close)
@@ -92,8 +109,9 @@ namespace livelywpf.Core.API
     [Serializable]
     public class LivelyScreenshotCmd : IpcMessage
     {
+        public ScreenshotFormat Format { get; set; }
         public string FilePath { get; set; }
-        public ImageFormat Format { get; set; }
+        public uint Delay { get; set; }
         public LivelyScreenshotCmd() : base(MessageType.cmd_screenshot)
         {
         }

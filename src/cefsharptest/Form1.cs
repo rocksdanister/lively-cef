@@ -620,11 +620,16 @@ namespace cefsharptest
 
         private void ChromeBrowser_LoadingStateChanged(object sender, LoadingStateChangedEventArgs e)
         {
-            if (WidgetData.liveyPropertiesData == null || e.IsLoading)
+            if (e.IsLoading)
             {
                 return;
             }
-            RestoreLivelyPropertySettings();
+
+            if (WidgetData.liveyPropertiesData != null)
+            {
+                RestoreLivelyPropertySettings();
+            }
+            WriteToParent(new LivelyMessageWallpaperLoaded() { Success = true });
         }
 
         private static void RestoreLivelyPropertySettings()
@@ -977,22 +982,49 @@ namespace cefsharptest
             }
         }
 
-        public static async Task CaptureScreenshot(string filePath, ImageFormat format)
+        public static async Task CaptureScreenshot(string filePath, ScreenshotFormat format)
         {
-            byte[] data = await CefSharp.DevTools.DevToolsExtensions.CaptureScreenShotAsPng(chromeBrowser);
-            if (format == ImageFormat.Png)
+            CefSharp.DevTools.DevToolsExtensions.CaptureFormat captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.png;
+            switch (format)
             {
-                File.WriteAllBytes(filePath, data);
+                case ScreenshotFormat.jpeg:
+                    captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.jpeg;
+                    break;
+                case ScreenshotFormat.png:
+                    captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.png;
+                    break;
+                case ScreenshotFormat.webp:
+                    captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.webp;
+                    break;
+                case ScreenshotFormat.bmp:
+                    // Not supported by cef
+                    captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.png;
+                    break;
             }
-            else
+            byte[] imageBytes = await CefSharp.DevTools.DevToolsExtensions.CaptureScreenShotAsPng(chromeBrowser, captureFormat);
+
+            switch (format)
             {
-                using (var ms = new MemoryStream(data, 0, data.Length))
-                {
-                    using (var image = Image.FromStream(ms, true))
+                case ScreenshotFormat.jpeg:
+                case ScreenshotFormat.png:
+                case ScreenshotFormat.webp:
                     {
-                        image.Save(filePath, format);
+                        // Write to disk
+                        File.WriteAllBytes(filePath, imageBytes);
                     }
-                }
+                    break;
+                case ScreenshotFormat.bmp:
+                    {
+                        // Convert byte[] to Image
+                        using (var ms = new MemoryStream(imageBytes, 0, imageBytes.Length))
+                        {
+                            using (var image = Image.FromStream(ms, true))
+                            {
+                                image.Save(filePath, ImageFormat.Bmp);
+                            }
+                        }
+                    }
+                    break;
             }
         }
 

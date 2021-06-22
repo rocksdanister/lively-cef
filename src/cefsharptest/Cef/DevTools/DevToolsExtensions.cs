@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,13 @@ namespace CefSharp.DevTools
 {
     public static class DevToolsExtensions
     {
+        public enum CaptureFormat
+        {
+            jpeg,
+            webp,
+            png
+        }
+
         private static int LastMessageId = 600000;
         /// <summary>
         /// Calls Page.captureScreenshot without any optional params
@@ -16,7 +24,7 @@ namespace CefSharp.DevTools
         /// </summary>
         /// <param name="browser">the ChromiumWebBrowser</param>
         /// <returns>png encoded image as byte[]</returns>
-        public static async Task<byte[]> CaptureScreenShotAsPng(this IWebBrowser chromiumWebBrowser)
+        public static async Task<byte[]> CaptureScreenShotAsPng(this IWebBrowser chromiumWebBrowser, CaptureFormat format)
         {
             //if (!browser.HasDocument)
             //{
@@ -48,17 +56,30 @@ namespace CefSharp.DevTools
                 //for this DevTools method
                 int id = 0;
                 const string methodName = "Page.captureScreenshot";
+                Dictionary<string, object> param = null;
+                switch (format)
+                {
+                    case CaptureFormat.jpeg:
+                        param = new Dictionary<string, object> { { "format", "jpeg" } };
+                        break;
+                    case CaptureFormat.webp:
+                        param = new Dictionary<string, object> { { "format", "webp" } };
+                        break;
+                    case CaptureFormat.png:
+                        param = null; // Default
+                        break;
+                }
 
                 //TODO: Simplify this, we can use an Func to reduce code duplication
                 if (Cef.CurrentlyOnThread(CefThreadIds.TID_UI))
                 {
-                    id = host.ExecuteDevToolsMethod(msgId, methodName);
+                    id = host.ExecuteDevToolsMethod(msgId, methodName, param);
                 }
                 else
                 {
                     id = await Cef.UIThreadTaskFactory.StartNew(() =>
                     {
-                        return host.ExecuteDevToolsMethod(msgId, methodName);
+                        return host.ExecuteDevToolsMethod(msgId, methodName, param);
                     });
                 }
 

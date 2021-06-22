@@ -46,6 +46,8 @@ namespace livelywpf.Core.API
                     return jo.ToObject<LivelyMessageHwnd>(serializer);
                 case MessageType.msg_screenshot:
                     return jo.ToObject<LivelyMessageScreenshot>(serializer);
+                case MessageType.msg_wploaded:
+                    return jo.ToObject<LivelyMessageWallpaperLoaded>(serializer);
                 default:
                     return null;
             }
