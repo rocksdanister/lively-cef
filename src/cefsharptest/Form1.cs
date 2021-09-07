@@ -79,7 +79,7 @@ namespace cefsharptest
             InitializeComponent();
             this.WindowState = FormWindowState.Normal;
             this.StartPosition = FormStartPosition.Manual;
-            //this.Location = new Point(-9999, 0);
+            this.Location = new Point(-9999, 0);
 
             CommandLine.Parser.Default.ParseArguments<Options>(args)
                 .WithParsed(RunOptions)
@@ -928,7 +928,7 @@ namespace cefsharptest
 
         private void Form1_Shown(object sender, EventArgs e)
         {
-            this.Hide();
+            //this.Hide();
         }
 
         #endregion //window
