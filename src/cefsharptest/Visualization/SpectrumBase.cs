@@ -5,7 +5,7 @@ using System.Diagnostics;
 using CSCore;
 using CSCore.DSP;
 
-namespace cefsharptest
+namespace LivelyCefSharp.Visualization
 {
     public class SpectrumBase : INotifyPropertyChanged
     {

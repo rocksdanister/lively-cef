@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace livelywpf.Core.API
+namespace LivelyCefSharp.API
 {
     class IpcMessageConverter : JsonConverter
     {
@@ -14,43 +14,26 @@ namespace livelywpf.Core.API
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
             JObject jo = JObject.Load(reader);
-            switch ((MessageType)jo["Type"].Value<int>())
+            return (MessageType)jo["Type"].Value<int>() switch
             {
-                case MessageType.cmd_reload:
-                    return jo.ToObject<LivelyReloadCmd>(serializer);
-                case MessageType.cmd_close:
-                    return jo.ToObject<LivelyCloseCmd>(serializer);
-                case MessageType.cmd_screenshot:
-                    return jo.ToObject<LivelyScreenshotCmd>(serializer);
-                case MessageType.lsp_perfcntr:
-                    return jo.ToObject<LivelySystemInformation>(serializer);
-                case MessageType.lsp_nowplaying:
-                    return jo.ToObject<LivelySystemNowPlaying>(serializer);
-                case MessageType.lp_slider:
-                    return jo.ToObject<LivelySlider>(serializer);
-                case MessageType.lp_textbox:
-                    return jo.ToObject<LivelyTextBox>(serializer);
-                case MessageType.lp_dropdown:
-                    return jo.ToObject<LivelyDropdown>(serializer);
-                case MessageType.lp_fdropdown:
-                    return jo.ToObject<LivelyFolderDropdown>(serializer);
-                case MessageType.lp_button:
-                    return jo.ToObject<LivelyButton>(serializer);
-                case MessageType.lp_cpicker:
-                    return jo.ToObject<LivelyColorPicker>(serializer);
-                case MessageType.lp_chekbox:
-                    return jo.ToObject<LivelyCheckbox>(serializer);
-                case MessageType.msg_console:
-                    return jo.ToObject<LivelyMessageConsole>(serializer);
-                case MessageType.msg_hwnd:
-                    return jo.ToObject<LivelyMessageHwnd>(serializer);
-                case MessageType.msg_screenshot:
-                    return jo.ToObject<LivelyMessageScreenshot>(serializer);
-                case MessageType.msg_wploaded:
-                    return jo.ToObject<LivelyMessageWallpaperLoaded>(serializer);
-                default:
-                    return null;
-            }
+                MessageType.cmd_reload => jo.ToObject<LivelyReloadCmd>(serializer),
+                MessageType.cmd_close => jo.ToObject<LivelyCloseCmd>(serializer),
+                MessageType.cmd_screenshot => jo.ToObject<LivelyScreenshotCmd>(serializer),
+                MessageType.lsp_perfcntr => jo.ToObject<LivelySystemInformation>(serializer),
+                MessageType.lsp_nowplaying => jo.ToObject<LivelySystemNowPlaying>(serializer),
+                MessageType.lp_slider => jo.ToObject<LivelySlider>(serializer),
+                MessageType.lp_textbox => jo.ToObject<LivelyTextBox>(serializer),
+                MessageType.lp_dropdown => jo.ToObject<LivelyDropdown>(serializer),
+                MessageType.lp_fdropdown => jo.ToObject<LivelyFolderDropdown>(serializer),
+                MessageType.lp_button => jo.ToObject<LivelyButton>(serializer),
+                MessageType.lp_cpicker => jo.ToObject<LivelyColorPicker>(serializer),
+                MessageType.lp_chekbox => jo.ToObject<LivelyCheckbox>(serializer),
+                MessageType.msg_console => jo.ToObject<LivelyMessageConsole>(serializer),
+                MessageType.msg_hwnd => jo.ToObject<LivelyMessageHwnd>(serializer),
+                MessageType.msg_screenshot => jo.ToObject<LivelyMessageScreenshot>(serializer),
+                MessageType.msg_wploaded => jo.ToObject<LivelyMessageWallpaperLoaded>(serializer),
+                _ => null,
+            };
         }
 
         public override bool CanWrite

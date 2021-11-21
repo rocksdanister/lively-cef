@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using CSCore.DSP;
 
-namespace cefsharptest
+namespace LivelyCefSharp.Visualization
 {
     /// <summary>
     ///     BasicSpectrumProvider

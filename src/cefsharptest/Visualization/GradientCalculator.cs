@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Linq;
 
-namespace cefsharptest
+namespace LivelyCefSharp.Visualization
 {
     internal class GradientCalculator
     {

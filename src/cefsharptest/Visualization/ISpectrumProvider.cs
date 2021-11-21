@@ -1,4 +1,4 @@
-﻿namespace cefsharptest
+﻿namespace LivelyCefSharp.Visualization
 {
     public interface ISpectrumProvider
     {

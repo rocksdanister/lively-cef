@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace livelywpf.Core.API
+namespace LivelyCefSharp.API
 {
     public enum MessageType
     {
@@ -120,7 +120,7 @@ namespace livelywpf.Core.API
     [Serializable]
     public class LivelySystemInformation : IpcMessage
     {
-        public Helpers.HWUsageMonitorEventArgs Info { get; set; }
+        public Services.HWUsageMonitorEventArgs Info { get; set; }
         public LivelySystemInformation() : base(MessageType.cmd_reload)
         {
         }
@@ -129,7 +129,7 @@ namespace livelywpf.Core.API
     [Serializable]
     public class LivelySystemNowPlaying : IpcMessage
     {
-        public Helpers.NowPlayingEventArgs Info { get; set; }
+        public Services.NowPlayingEventArgs Info { get; set; }
         public LivelySystemNowPlaying() : base(MessageType.cmd_reload)
         {
         }

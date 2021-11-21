@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using LivelyCefSharp.API;
+using LivelyCefSharp.Helpers;
 
-namespace livelywpf.Helpers
+namespace LivelyCefSharp.Services
 {
     public class HWUsageMonitorEventArgs : EventArgs
     {
@@ -33,7 +35,7 @@ namespace livelywpf.Helpers
         /// </summary>
         public float CurrentRamAvail { get; set; }
         /// <summary>
-        /// Network download speed (Bytes/Sec)
+        /// Netork download speed (Bytes/Sec)
         /// </summary>
         public float CurrentNetDown { get; set; }
         /// <summary>
@@ -46,7 +48,7 @@ namespace livelywpf.Helpers
         public long TotalRam { get; set; }
     }
 
-    public sealed class HWUsageMonitor
+    public class PerfCounterUsage
     {
         public event EventHandler<HWUsageMonitorEventArgs> HWMonitor = delegate { };
         private readonly HWUsageMonitorEventArgs perfData = new HWUsageMonitorEventArgs();
@@ -58,29 +60,30 @@ namespace livelywpf.Helpers
         private PerformanceCounter netDownCounter = null;
         private PerformanceCounter netUpCounter = null;
 
-        public HWUsageMonitor()
+        public PerfCounterUsage()
         {
-            InitCounters();
+            InitializePerfCounters();
         }
 
-        public void StartService()
+        public void Start()
         {
             if (ctsHwMonitor == null)
             {
                 ctsHwMonitor = new CancellationTokenSource();
-                HWMonitorService();
+                HWMonitorLoop();
             }
-        }
-
-        public void StopService()
-        {
-            if (ctsHwMonitor != null)
+            else
             {
-                ctsHwMonitor.Cancel();
+                throw new InvalidOperationException("Service once stopped cannot be restarted!");
             }
         }
 
-        private void InitCounters()
+        public void Stop()
+        {
+            ctsHwMonitor?.Cancel();
+        }
+
+        private void InitializePerfCounters()
         {
             try
             {
@@ -109,15 +112,11 @@ namespace livelywpf.Helpers
             }
             catch (Exception ex)
             {
-                cefsharptest.Form1.WriteToParent(new livelywpf.Core.API.LivelyMessageConsole()
-                {
-                    Category = Core.API.ConsoleMessageType.error,
-                    Message = ex.Message
-                });
+                //Logger.Info("PerfCounter: Init fail:" + ex.Message);
             }
         }
 
-        private async void HWMonitorService()
+        private async void HWMonitorLoop()
         {
             try
             {
@@ -139,13 +138,9 @@ namespace livelywpf.Helpers
                         }
                         catch (OperationCanceledException)
                         {
-                            cefsharptest.Form1.WriteToParent(new livelywpf.Core.API.LivelyMessageConsole()
-                            {
-                                Category = Core.API.ConsoleMessageType.log,
-                                Message = "Perf: counter stopped."
-                            });
+                            //Logger.Info("PerfCounter: Stopped");
                             ctsHwMonitor.Dispose();
-                            ctsHwMonitor = null;
+                            //ctsHwMonitor = null;
                             break;
                         }
                         catch
@@ -253,10 +248,10 @@ namespace livelywpf.Helpers
         {
             try
             {
-                using(var netDown = new PerformanceCounter("Network Interface",
+                using (var netDown = new PerformanceCounter("Network Interface",
                                                    "Bytes Received/sec", networkCard))
                 {
-                    using(var netUp = new PerformanceCounter("Network Interface",
+                    using (var netUp = new PerformanceCounter("Network Interface",
                                                         "Bytes Sent/sec", networkCard))
                     {
                         _ = netDown.NextValue();

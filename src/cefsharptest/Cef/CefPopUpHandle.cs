@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CefSharp;
 
-namespace cefsharptest
+namespace LivelyCefSharp
 {
     class CefPopUpHandle : ILifeSpanHandler
     {

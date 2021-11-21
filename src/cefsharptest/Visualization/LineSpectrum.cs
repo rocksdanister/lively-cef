@@ -5,7 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using CSCore.DSP;
 
-namespace cefsharptest
+namespace LivelyCefSharp.Visualization
 {
     public class LineSpectrum : SpectrumBase
     {

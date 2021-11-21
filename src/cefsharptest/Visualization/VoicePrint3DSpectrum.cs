@@ -2,7 +2,7 @@
 using System.Drawing;
 using CSCore.DSP;
 
-namespace cefsharptest
+namespace LivelyCefSharp.Visualization
 {
     public class VoicePrint3DSpectrum : SpectrumBase
     {

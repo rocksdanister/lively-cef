@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 
-namespace cefsharptest
+namespace LivelyCefSharp
 {
 
     static class Program
