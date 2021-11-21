@@ -10,10 +10,7 @@ using System.Diagnostics;
 using CefSharp.Example.Handlers;
 using LivelyCefSharp.Services;
 using CommandLine;
-using System.Text.RegularExpressions;
-using System.Linq;
 using System.Drawing;
-using System.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Drawing.Imaging;
@@ -47,8 +44,9 @@ namespace LivelyCefSharp
         private string livelyPropertyPath;
         private string path;
         private Rectangle preferredWinSize = Rectangle.Empty;
-        private readonly JObject livelyPropertyData;
+        private JObject livelyPropertyData;
         private bool VerboseLog;
+        private bool suspendJsMsg = false;
         private readonly PerfCounterUsage sysMonitor;
         private readonly SystemAudio sysAudio;
         private ChromiumWebBrowser chromeBrowser;
@@ -133,17 +131,17 @@ namespace LivelyCefSharp
             }
             else if (opts.Type.Equals("online", StringComparison.OrdinalIgnoreCase))
             {
-                string ytVideoId;
-                if (path.Contains("shadertoy.com/view"))
+                string tmp = null;
+                if (LinkUtil.TryParseShadertoy(path, ref tmp))
                 {
                     linkType = LinkType.shadertoy;
-                    path = ShadertoyURLtoEmbedLink(path);
+                    path = tmp;
                 }
-                else if((ytVideoId = GetYouTubeVideoIdFromUrl(htmlPath)) != "")
+                else if((tmp = LinkUtil.GetYouTubeVideoIdFromUrl(htmlPath)) != "")
                 {
                     linkType = LinkType.yt;
-                    path = "https://www.youtube.com/embed/" + ytVideoId +
-                        "?version=3&rel=0&autoplay=1&loop=1&controls=0&playlist=" + ytVideoId;
+                    path = "https://www.youtube.com/embed/" + tmp +
+                        "?version=3&rel=0&autoplay=1&loop=1&controls=0&playlist=" + tmp;
                 }
                 else
                 {
@@ -207,7 +205,13 @@ namespace LivelyCefSharp
                                 switch (obj.Type)
                                 {
                                     case MessageType.cmd_reload:
-                                        chromeBrowser.Reload(true);
+                                        chromeBrowser?.Reload(true);
+                                        break;
+                                    case MessageType.cmd_suspend:
+                                        suspendJsMsg = true;
+                                        break;
+                                    case MessageType.cmd_resume:
+                                        suspendJsMsg = false;
                                         break;
                                     case MessageType.cmd_screenshot:
                                         var success = true;
@@ -277,7 +281,7 @@ namespace LivelyCefSharp
                                             try
                                             {
                                                 //load new file.
-                                                JsonUtil.Read(livelyPropertyPath);
+                                                livelyPropertyData = JsonUtil.Read(livelyPropertyPath);
                                                 //restore new property values.
                                                 RestoreLivelyPropertySettings();
                                             }
@@ -389,11 +393,17 @@ namespace LivelyCefSharp
             switch (linkType)
             {
                 case LinkType.shadertoy:
-                case LinkType.yt:
                     {
                         Cef.Initialize(settings);
                         chromeBrowser = new ChromiumWebBrowser(string.Empty);
                         chromeBrowser.LoadHtml(path);
+                    }
+                    break;
+                case LinkType.yt:
+                    {
+                        Cef.Initialize(settings);
+                        chromeBrowser = new ChromiumWebBrowser(string.Empty);
+                        chromeBrowser.Load(path);
                     }
                     break;
                 case LinkType.local:
@@ -451,13 +461,16 @@ namespace LivelyCefSharp
 
         private void SysAudio_AudioData(object sender, float[] fftBuffer)
         {
+            if (suspendJsMsg)
+                return;
+
             try
             {
                 if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                 {
                     if (fftBuffer != null)
                     {
-                        ExecuteScriptAsync("livelyAudioListener", fftBuffer);
+                        ExecuteScriptAsync(chromeBrowser, "livelyAudioListener", fftBuffer);
                     }
                 }
             }
@@ -467,33 +480,11 @@ namespace LivelyCefSharp
             }
         }
 
-        //original ref: https://github.com/cefsharp/CefSharp/pull/1372/files
-        /// <summary>
-        /// Modified for passing array to js.
-        /// </summary>
-        void ExecuteScriptAsync(string methodName, float[] args)
-        {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.Append(methodName);
-            stringBuilder.Append("([");
-
-            for (int i = 0; i < args.Length; i++)
-            {
-                stringBuilder.Append(args[i]);
-                stringBuilder.Append(",");
-            }
-
-            //Remove the trailing comma
-            stringBuilder.Remove(stringBuilder.Length - 2, 2);
-
-            stringBuilder.Append("]);");
-            var script = stringBuilder.ToString();
-
-            chromeBrowser.ExecuteScriptAsync(script);
-        }
-
         private void SysMonitor_HardwareUsage(object sender, LivelyCefSharp.Services.HWUsageMonitorEventArgs e)
         {
+            if (suspendJsMsg)
+                return;
+
             try
             {
                 if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
@@ -609,78 +600,9 @@ namespace LivelyCefSharp
             //chromeBrowser.LoadHtml(@"<body style=""background-color:black;""><h1 style = ""color:white;"">Error Loading webpage:" + e.ErrorText + "</h1></body>");            
         }
 
-        /// <summary>
-        /// Converts shadertoy.com url to embed link: fullscreen, muted audio.
-        /// </summary>
-        /// <param name="shadertoylink"></param>
-        /// <returns>shadertoy embed url</returns>
-        private string ShadertoyURLtoEmbedLink(string shadertoylink)
-        {
-            if (!shadertoylink.Contains("https://"))
-                shadertoylink = "https://" + path;
-
-            shadertoylink = shadertoylink.Replace("view/", "embed/");
-
-            string text = @"<!DOCTYPE html><html lang=""en"" dir=""ltr""> <head> <meta charset=""utf - 8""> 
-                    <title>Digital Brain</title> <style media=""screen""> iframe { position: fixed; width: 100%; height: 100%; top: 0; right: 0; bottom: 0;
-                    left: 0; z-index; -1; pointer-events: none;  } </style> </head> <body> <iframe width=""640"" height=""360"" frameborder=""0"" 
-                    src=" + shadertoylink + @"?gui=false&t=10&paused=false&muted=true""></iframe> </body></html>";
-            // WriteAllText creates a file, writes the specified string to the file,
-            // and then closes the file.    You do NOT need to call Flush() or Close().
-            //System.IO.File.WriteAllText(AppDomain.CurrentDomain.BaseDirectory + @"\\shadertoy_url.html", text);
-            return text;
-        }
-
         #endregion //cef
 
         #region helpers
-
-        //ref: https://stackoverflow.com/questions/39777659/extract-the-video-id-from-youtube-url-in-net
-        private static string GetYouTubeVideoIdFromUrl(string url)
-        {
-            Uri uri;
-            if (!Uri.TryCreate(url, UriKind.Absolute, out uri))
-            {
-                try
-                {
-                    uri = new UriBuilder("http", url).Uri;
-                }
-                catch
-                {
-                    // invalid url
-                    return "";
-                }
-            }
-
-            string host = uri.Host;
-            string[] youTubeHosts = { "www.youtube.com", "youtube.com", "youtu.be", "www.youtu.be" };
-            if (!youTubeHosts.Contains(host))
-                return "";
-
-            var query = HttpUtility.ParseQueryString(uri.Query);
-            if (query.AllKeys.Contains("v"))
-            {
-                return Regex.Match(query["v"], @"^[a-zA-Z0-9_-]{11}$").Value;
-            }
-            else if (query.AllKeys.Contains("u"))
-            {
-                // some urls have something like "u=/watch?v=AAAAAAAAA16"
-                return Regex.Match(query["u"], @"/watch\?v=([a-zA-Z0-9_-]{11})").Groups[1].Value;
-            }
-            else
-            {
-                // remove a trailing forward space
-                var last = uri.Segments.Last().Replace("/", "");
-                if (Regex.IsMatch(last, @"^v=[a-zA-Z0-9_-]{11}$"))
-                    return last.Replace("v=", "");
-
-                string[] segments = uri.Segments;
-                if (segments.Length > 2 && segments[segments.Length - 2] != "v/" && segments[segments.Length - 2] != "watch/")
-                    return "";
-
-                return Regex.Match(last, @"^[a-zA-Z0-9_-]{11}$").Value;
-            }
-        }
 
         public async Task CaptureScreenshot(ChromiumWebBrowser chromeBrowser, string filePath, ScreenshotFormat format)
         {
@@ -716,16 +638,37 @@ namespace LivelyCefSharp
                 case ScreenshotFormat.bmp:
                     {
                         // Convert byte[] to Image
-                        using (var ms = new MemoryStream(imageBytes, 0, imageBytes.Length))
-                        {
-                            using (var image = Image.FromStream(ms, true))
-                            {
-                                image.Save(filePath, ImageFormat.Bmp);
-                            }
-                        }
+                        using var ms = new MemoryStream(imageBytes, 0, imageBytes.Length);
+                        using var image = Image.FromStream(ms, true);
+                        image.Save(filePath, ImageFormat.Bmp);
                     }
                     break;
             }
+        }
+
+        //original ref: https://github.com/cefsharp/CefSharp/pull/1372/files
+        /// <summary>
+        /// Modified for passing array to js.
+        /// </summary>
+        void ExecuteScriptAsync(ChromiumWebBrowser chromeBrowser, string methodName, float[] args)
+        {
+            var stringBuilder = new StringBuilder();
+            stringBuilder.Append(methodName);
+            stringBuilder.Append("([");
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                stringBuilder.Append(args[i]);
+                stringBuilder.Append(",");
+            }
+
+            //Remove the trailing comma
+            stringBuilder.Remove(stringBuilder.Length - 2, 2);
+
+            stringBuilder.Append("]);");
+            var script = stringBuilder.ToString();
+
+            chromeBrowser.ExecuteScriptAsync(script);
         }
 
         #endregion //helpers
