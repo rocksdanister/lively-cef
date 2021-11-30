@@ -213,6 +213,10 @@ namespace LivelyCefSharp
                                     case MessageType.cmd_resume:
                                         suspendJsMsg = false;
                                         break;
+                                    case MessageType.cmd_volume:
+                                        var vc = (LivelyVolumeCmd)obj;
+                                        chromeBrowser.GetBrowserHost()?.SetAudioMuted(vc.Volume == 0);
+                                        break;
                                     case MessageType.cmd_screenshot:
                                         var success = true;
                                         var scr = (LivelyScreenshotCmd)obj;
