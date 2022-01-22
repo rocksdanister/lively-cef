@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using CefSharp;
 
-namespace LivelyCefSharp
+namespace Lively.PlayerCefSharp
 {
     /// <summary>
     /// Cef right click contextmenu disable.

@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 
-namespace LivelyCefSharp.Helpers
+namespace Lively.PlayerCefSharp.Helpers
 {
     public static class LinkUtil
     {

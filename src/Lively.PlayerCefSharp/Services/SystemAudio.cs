@@ -11,7 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LivelyCefSharp.Services
+namespace Lively.PlayerCefSharp.Services
 {
     public class SystemAudio : IDisposable
     {

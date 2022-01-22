@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29519.181
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LivelyCefSharp", "LivelyCefSharp\LivelyCefSharp.csproj", "{468EA9A1-B17F-4BA0-B014-64FE6EC3019B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lively.PlayerCefSharp", "Lively.PlayerCefSharp\Lively.PlayerCefSharp.csproj", "{468EA9A1-B17F-4BA0-B014-64FE6EC3019B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

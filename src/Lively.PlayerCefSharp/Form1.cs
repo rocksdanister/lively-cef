@@ -8,17 +8,17 @@ using CefSharp.WinForms;
 using System.IO;
 using System.Diagnostics;
 using CefSharp.Example.Handlers;
-using LivelyCefSharp.Services;
 using CommandLine;
 using System.Drawing;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Drawing.Imaging;
-using LivelyCefSharp.API;
-using LivelyCefSharp.Helpers;
 using System.Text;
+using Lively.PlayerCefSharp.Services;
+using Lively.PlayerCefSharp.API;
+using Lively.PlayerCefSharp.Helpers;
 
-namespace LivelyCefSharp
+namespace Lively.PlayerCefSharp
 {
     public partial class Form1 : Form
     {
@@ -484,7 +484,7 @@ namespace LivelyCefSharp
             }
         }
 
-        private void SysMonitor_HardwareUsage(object sender, LivelyCefSharp.Services.HWUsageMonitorEventArgs e)
+        private void SysMonitor_HardwareUsage(object sender, HWUsageMonitorEventArgs e)
         {
             if (suspendJsMsg)
                 return;

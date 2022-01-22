@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace LivelyCefSharp.API
+namespace Lively.PlayerCefSharp.API
 {
     class IpcMessageConverter : JsonConverter
     {

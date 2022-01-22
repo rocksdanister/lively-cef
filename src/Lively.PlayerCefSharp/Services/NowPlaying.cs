@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Windows.Threading;
 
-namespace LivelyCefSharp.Services
+namespace Lively.PlayerCefSharp.Services
 {
     public class NowPlayingEventArgs : EventArgs
     {

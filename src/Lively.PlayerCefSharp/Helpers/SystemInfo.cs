@@ -5,7 +5,7 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace LivelyCefSharp.Helpers
+namespace Lively.PlayerCefSharp.Helpers
 {
     /// <summary>
     /// Retrieve system information:- operating system version, cpu, gpu etc..

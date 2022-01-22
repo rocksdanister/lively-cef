@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace LivelyCefSharp.API
+namespace Lively.PlayerCefSharp.API
 {
     public enum MessageType
     {

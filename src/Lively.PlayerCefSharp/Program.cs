@@ -8,7 +8,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
 
-namespace LivelyCefSharp
+namespace Lively.PlayerCefSharp
 {
 
     static class Program

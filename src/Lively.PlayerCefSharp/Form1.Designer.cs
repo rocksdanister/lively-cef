@@ -1,4 +1,4 @@
-﻿namespace LivelyCefSharp
+﻿namespace Lively.PlayerCefSharp
 {
     partial class Form1
     {

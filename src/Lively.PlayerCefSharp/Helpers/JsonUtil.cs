@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json.Linq;
 using System.IO;
 
-namespace LivelyCefSharp.Helpers
+namespace Lively.PlayerCefSharp.Helpers
 {
     public static class JsonUtil
     {

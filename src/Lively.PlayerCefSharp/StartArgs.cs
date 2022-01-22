@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LivelyCefSharp
+namespace Lively.PlayerCefSharp
 {
     public class StartArgs
     {

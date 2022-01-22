@@ -1,12 +1,11 @@
-﻿using System;
+﻿using Lively.PlayerCefSharp.Helpers;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using LivelyCefSharp.API;
-using LivelyCefSharp.Helpers;
 
-namespace LivelyCefSharp.Services
+namespace Lively.PlayerCefSharp.Services
 {
     public class HWUsageMonitorEventArgs : EventArgs
     {
