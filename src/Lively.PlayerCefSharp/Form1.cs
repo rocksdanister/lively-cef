@@ -174,6 +174,11 @@ namespace Lively.PlayerCefSharp
 
         #region ipc
 
+        public class WallpaperPlaybackState
+        {
+            public bool IsPaused { get; set; }
+        }
+
         /// <summary>
         /// std I/O redirect, used to communicate with lively. 
         /// </summary>
@@ -209,9 +214,21 @@ namespace Lively.PlayerCefSharp
                                         break;
                                     case MessageType.cmd_suspend:
                                         suspendJsMsg = true;
+                                        /*
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = true }), Formatting.Indented);
+                                        }
+                                        */
                                         break;
                                     case MessageType.cmd_resume:
                                         suspendJsMsg = false;
+                                        /*
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                        {
+                                            chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = false }), Formatting.Indented);
+                                        }
+                                        */
                                         break;
                                     case MessageType.cmd_volume:
                                         var vc = (LivelyVolumeCmd)obj;
