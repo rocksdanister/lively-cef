@@ -24,7 +24,7 @@ namespace Lively.PlayerCefSharp
     {
         #region init
 
-        private enum LinkType
+        private enum PageType
         {
             shadertoy,
             yt,
@@ -33,133 +33,118 @@ namespace Lively.PlayerCefSharp
             standalone
         }
 
-        private LinkType linkType;
-        private string originalUrl;
-        private string debugPort;
-        private string cachePath;
-        private int cefVolume;
-        private bool sysAudioEnabled;
-        private bool sysMonitorEnabled;
-        public string htmlPath;
-        private string livelyPropertyPath;
-        private string path;
-        private Rectangle preferredWinSize = Rectangle.Empty;
-        private JObject livelyPropertyData;
-        private bool VerboseLog;
-        private bool suspendJsMsg = false;
-        private readonly PerfCounterUsage sysMonitor;
-        private readonly SystemAudio sysAudio;
+        //private string livelyPropertyPath;
+        //private JObject livelyPropertyData;
+        private bool isPaused = false;
+        private readonly IHardwareUsageService sysMonitor;
+        private readonly IAudioVisualizerService sysAudio;
         private ChromiumWebBrowser chromeBrowser;
+
+        private readonly StartArgs startArgs;
 
         public Form1()
         {
             InitializeComponent();
-            this.WindowState = FormWindowState.Normal;
-            this.StartPosition = FormStartPosition.Manual;
-            this.Location = new Point(-9999, 0);
-
-            CommandLine.Parser.Default.ParseArguments<StartArgs>(Environment.GetCommandLineArgs())
-                .WithParsed(RunOptions)
-                .WithNotParsed(HandleParseError);
-
-            if (preferredWinSize != Rectangle.Empty)
+#if DEBUG
+            startArgs = new StartArgs
             {
-                this.Size = new Size(preferredWinSize.Width, preferredWinSize.Height);
-            }
-
-            //stdin message pipe
-            StdInListener();
-
-            try
-            {
-                // livelyPropertyPath loaded from commandline arg.
-                livelyPropertyData = JsonUtil.Read(livelyPropertyPath);
-            }
-            catch
-            {
-                //can be non-customisable wp, file missing/corrupt error: skip.
-            }
-
-            //CEF init
-            StartCef();
-
-            //Only for local html wallpapers.
-            sysMonitorEnabled = linkType == LinkType.local && sysMonitorEnabled;
-            sysAudioEnabled = linkType == LinkType.local && sysAudioEnabled;
-
-            if (sysAudioEnabled)
-            {
-                sysAudio = new SystemAudio();
-                sysAudio.AudioData += SysAudio_AudioData;
-                sysAudio.Start();
-            }
-
-            if (sysMonitorEnabled)
-            {
-                //todo: run this service in main lively pgm instead and pass msg via ipc.
-                sysMonitor = new PerfCounterUsage();
-                sysMonitor.HWMonitor += SysMonitor_HardwareUsage;
-                sysMonitor.Start();
-            }
-        }
-
-        private void RunOptions(StartArgs opts)
-        {
-            path = opts.Url;
-            htmlPath = path;
-            originalUrl = opts.Url;
-            sysAudioEnabled = opts.AudioAnalyse;
-            sysMonitorEnabled = opts.SysInfo;
-            debugPort = opts.DebugPort;
-            cachePath = opts.CachePath;
-            cefVolume = opts.Volume;
-            VerboseLog = opts.VerboseLog;
-
-            if (opts.Geometry != null)
-            {
-                var msg = opts.Geometry.Split('x');
-                if (msg.Length >= 2 && int.TryParse(msg[0], out int width) && int.TryParse(msg[1], out int height))
-                {
-                    //todo: send pos also.
-                    preferredWinSize = new Rectangle(0, 0, width, height);
-                }
-            }
-
-            if (opts.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
-            {
-                linkType = LinkType.local;
-            }
-            else if (opts.Type.Equals("online", StringComparison.OrdinalIgnoreCase))
-            {
-                string tmp = null;
-                if (LinkUtil.TryParseShadertoy(path, ref tmp))
-                {
-                    linkType = LinkType.shadertoy;
-                    path = tmp;
-                }
-                else if((tmp = LinkUtil.GetYouTubeVideoIdFromUrl(htmlPath)) != "")
-                {
-                    linkType = LinkType.yt;
-                    path = "https://www.youtube.com/embed/" + tmp +
-                        "?version=3&rel=0&autoplay=1&loop=1&controls=0&playlist=" + tmp;
-                }
-                else
-                {
-                    linkType = LinkType.online;
-                }
-            }
-            else if (opts.Type.Equals("deviantart", StringComparison.OrdinalIgnoreCase))
-            {
-                linkType = LinkType.standalone;
+                // .html fullpath
+                Url = @"",
+                //online or local(file)
+                Type = "local",
+                // LivelyProperties.json path if any
+                Properties = null,
+                SysInfo = false,
+                //NowPlaying = false,
+                AudioVisualizer = true,
+            };
 
                 this.FormBorderStyle = FormBorderStyle.Sizable;
-                this.WindowState = FormWindowState.Maximized;
+                this.WindowState = FormWindowState.Normal;
+                this.StartPosition = FormStartPosition.Manual;
+                this.Size = new Size(1920, 1080);
                 //this.SizeGripStyle = SizeGripStyle.Show;
                 this.ShowInTaskbar = true;
                 this.MaximizeBox = true;
                 this.MinimizeBox = true;
+#endif
+
+#if DEBUG != true
+            Parser.Default.ParseArguments<StartArgs>(Environment.GetCommandLineArgs())
+                .WithParsed((x) => startArgs = x)
+                .WithNotParsed(HandleParseError);
+
+            this.WindowState = FormWindowState.Normal;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Location = new Point(-9999, 0);
+
+            if (startArgs.Geometry != null)
+            {
+                var msg = startArgs.Geometry.Split('x');
+                if (msg.Length >= 2 && int.TryParse(msg[0], out int width) && int.TryParse(msg[1], out int height))
+                {
+                    this.Size = new Size(width, height);
+                }
             }
-            livelyPropertyPath = opts.Properties;
+#endif
+
+            try
+            {
+                //CEF init
+                InitializeCefSharp();
+
+                if (startArgs.AudioVisualizer)
+                {
+                    sysAudio = new AudioVisualizerService();
+                    sysAudio.AudioDataAvailable += (s, e) => 
+                    {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                //chromeBrowser.ExecuteScriptAsync("livelyAudioListener", e);
+                                ExecuteScriptAsync(chromeBrowser, "livelyAudioListener", e);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //TODO
+                        }
+                    };
+                }
+
+                if (startArgs.SysInfo)
+                {
+                    sysMonitor = new PerfCounterUsageService();
+                    sysMonitor.HWMonitor += (s, e) => 
+                    {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
+                            }
+                        }
+                        catch
+                        {
+                            //TODO
+                        }
+                    };
+                    sysMonitor.Start();
+                }
+            }
+            finally
+            {
+#if DEBUG != true
+                _ = StdInListener();
+#endif
+            }
         }
 
         private void HandleParseError(IEnumerable<Error> errs)
@@ -182,7 +167,7 @@ namespace Lively.PlayerCefSharp
         /// <summary>
         /// std I/O redirect, used to communicate with lively. 
         /// </summary>
-        public async void StdInListener()
+        public async Task StdInListener()
         {
             try
             {
@@ -191,7 +176,7 @@ namespace Lively.PlayerCefSharp
                     while (true) // Loop runs only once per line received
                     {
                         string text = await Console.In.ReadLineAsync();
-                        if (VerboseLog)
+                        if (startArgs.VerboseLog)
                         {
                             Console.WriteLine(text);
                         }
@@ -213,22 +198,18 @@ namespace Lively.PlayerCefSharp
                                         chromeBrowser?.Reload(true);
                                         break;
                                     case MessageType.cmd_suspend:
-                                        suspendJsMsg = true;
-                                        /*
-                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame && startArgs.PauseEvent && !isPaused) //if js context ready
                                         {
                                             chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = true }), Formatting.Indented);
                                         }
-                                        */
+                                        isPaused = true;
                                         break;
                                     case MessageType.cmd_resume:
-                                        suspendJsMsg = false;
-                                        /*
-                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame && startArgs.PauseEvent && isPaused) //if js context ready
                                         {
                                             chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = false }), Formatting.Indented);
                                         }
-                                        */
+                                        isPaused = false;
                                         break;
                                     case MessageType.cmd_volume:
                                         var vc = (LivelyVolumeCmd)obj;
@@ -281,7 +262,7 @@ namespace Lively.PlayerCefSharp
                                         break;
                                     case MessageType.lp_fdropdown:
                                         var fd = (LivelyFolderDropdown)obj;
-                                        var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), fd.Value);
+                                        var filePath = Path.Combine(Path.GetDirectoryName(startArgs.Url), fd.Value);
                                         if (File.Exists(filePath))
                                         {
                                             chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
@@ -299,17 +280,7 @@ namespace Lively.PlayerCefSharp
                                         var btn = (LivelyButton)obj;
                                         if (btn.IsDefault)
                                         {
-                                            try
-                                            {
-                                                //load new file.
-                                                livelyPropertyData = JsonUtil.Read(livelyPropertyPath);
-                                                //restore new property values.
-                                                RestoreLivelyPropertySettings();
-                                            }
-                                            catch (Exception ex)
-                                            {
-                                                MessageBox.Show(ex.ToString(), "Lively Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                                            }
+                                            RestoreLivelyProperties(startArgs.Properties);
                                         }
                                         else
                                         {
@@ -360,17 +331,24 @@ namespace Lively.PlayerCefSharp
             }
             finally
             {
-                sysAudio?.Dispose();
-                sysMonitor?.Stop();
-                chromeBrowser?.Dispose();
-                Cef.Shutdown();
                 Application.Exit();
             }
         }
 
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            sysAudio?.Dispose();
+            sysMonitor?.Stop();
+            chromeBrowser?.Dispose();
+            Cef.Shutdown();
+        }
+
         public static void WriteToParent(IpcMessage obj)
         {
+#if DEBUG != true
             Console.WriteLine(JsonConvert.SerializeObject(obj));
+#endif
+            Debug.WriteLine(JsonConvert.SerializeObject(obj));
         }
 
         #endregion //ipc
@@ -380,12 +358,12 @@ namespace Lively.PlayerCefSharp
         /// <summary>
         /// starts up & loads cef instance.
         /// </summary>
-        public void StartCef()
+        public void InitializeCefSharp()
         {
             CefSettings settings = new CefSettings();
             //ref: https://magpcss.org/ceforum/apidocs3/projects/(default)/_cef_browser_settings_t.html#universal_access_from_file_urls
             //settings.CefCommandLineArgs.Add("allow-universal-access-from-files", "1"); //UNSAFE, Testing Only!
-            if (cefVolume == 0)
+            if (startArgs.Volume == 0)
             {
                 settings.CefCommandLineArgs.Add("--mute-audio", "1");
             }
@@ -394,16 +372,12 @@ namespace Lively.PlayerCefSharp
             settings.LogFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), 
                 "Lively Wallpaper", "Cef", "logfile.txt");
             //settings.BackgroundColor = Cef.ColorSetARGB(255, 43, 43, 43);
-            if (!string.IsNullOrWhiteSpace(debugPort))
-            {
-                //example-port: 8088
-                if (int.TryParse(debugPort, out int value))
-                    settings.RemoteDebuggingPort = value;
-            }
+            if (!string.IsNullOrWhiteSpace(startArgs.DebugPort) && int.TryParse(startArgs.DebugPort, out int value))
+                settings.RemoteDebuggingPort = value;
 
-            if (!string.IsNullOrWhiteSpace(cachePath))
+            if (!string.IsNullOrWhiteSpace(startArgs.CachePath))
             {
-                settings.CachePath = cachePath;
+                settings.CachePath = startArgs.CachePath;
             }
             else
             {
@@ -411,23 +385,49 @@ namespace Lively.PlayerCefSharp
                 settings.CefCommandLineArgs.Add("--disable-gpu-shader-disk-cache");
             }
 
-            switch (linkType)
+            PageType pageType = default;
+            string path = startArgs.Url;
+            if (startArgs.Type.Equals("local", StringComparison.OrdinalIgnoreCase))
             {
-                case LinkType.shadertoy:
+                pageType = PageType.local;
+            }
+            else if (startArgs.Type.Equals("online", StringComparison.OrdinalIgnoreCase))
+            {
+                string tmp = null;
+                if (LinkUtil.TryParseShadertoy(startArgs.Url, ref tmp))
+                {
+                    pageType = PageType.shadertoy;
+                    path = tmp;
+                }
+                else if ((tmp = LinkUtil.GetYouTubeVideoIdFromUrl(path)) != "")
+                {
+                    pageType = PageType.yt;
+                    path = "https://www.youtube.com/embed/" + tmp +
+                        "?version=3&rel=0&autoplay=1&loop=1&controls=0&playlist=" + tmp;
+                }
+                else
+                {
+                    pageType = PageType.online;
+                }
+            }
+
+            switch (pageType)
+            {
+                case PageType.shadertoy:
                     {
                         Cef.Initialize(settings);
                         chromeBrowser = new ChromiumWebBrowser(string.Empty);
                         chromeBrowser.LoadHtml(path);
                     }
                     break;
-                case LinkType.yt:
+                case PageType.yt:
                     {
                         Cef.Initialize(settings);
                         chromeBrowser = new ChromiumWebBrowser(string.Empty);
                         chromeBrowser.Load(path);
                     }
                     break;
-                case LinkType.local:
+                case PageType.local:
                     {
                         settings.RegisterScheme(new CefCustomScheme
                         {
@@ -448,13 +448,13 @@ namespace Lively.PlayerCefSharp
                         chromeBrowser = new ChromiumWebBrowser(path);
                     }
                     break;
-                case LinkType.online:
+                case PageType.online:
                     {
                         Cef.Initialize(settings);
                         chromeBrowser = new ChromiumWebBrowser(path);
                     }
                     break;
-                case LinkType.standalone:
+                case PageType.standalone:
                     {
                         Cef.Initialize(settings);
                         chromeBrowser = new ChromiumWebBrowser(path)
@@ -480,45 +480,6 @@ namespace Lively.PlayerCefSharp
             chromeBrowser.ConsoleMessage += ChromeBrowser_ConsoleMessage;
         }
 
-        private void SysAudio_AudioData(object sender, float[] fftBuffer)
-        {
-            if (suspendJsMsg)
-                return;
-
-            try
-            {
-                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                {
-                    if (fftBuffer != null)
-                    {
-                        ExecuteScriptAsync(chromeBrowser, "livelyAudioListener", fftBuffer);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                //TODO
-            }
-        }
-
-        private void SysMonitor_HardwareUsage(object sender, HWUsageMonitorEventArgs e)
-        {
-            if (suspendJsMsg)
-                return;
-
-            try
-            {
-                if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                {
-                    chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
-                }
-            }
-            catch 
-            {
-                //TODO
-            }
-        }
-
         private void ChromeBrowser_ConsoleMessage(object sender, ConsoleMessageEventArgs e)
         {
             WriteToParent(new LivelyMessageConsole()
@@ -540,20 +501,20 @@ namespace Lively.PlayerCefSharp
                 return;
             }
 
-            if (livelyPropertyData != null)
-            {
-                RestoreLivelyPropertySettings();
-            }
+            RestoreLivelyProperties(startArgs.Properties);
             WriteToParent(new LivelyMessageWallpaperLoaded() { Success = true });
         }
 
-        private void RestoreLivelyPropertySettings()
+        private void RestoreLivelyProperties(string path)
         {
             try
             {
+                if (path == null)
+                    return;
+
                 if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                 {
-                    foreach (var item in livelyPropertyData)
+                    foreach (var item in JsonUtil.ReadJObject(path))
                     {
                         string uiElementType = item.Value["type"].ToString();
                         if (!uiElementType.Equals("button", StringComparison.OrdinalIgnoreCase) && !uiElementType.Equals("label", StringComparison.OrdinalIgnoreCase))
@@ -568,7 +529,7 @@ namespace Lively.PlayerCefSharp
                             }
                             else if (uiElementType.Equals("folderDropdown", StringComparison.OrdinalIgnoreCase))
                             {
-                                var filePath = Path.Combine(Path.GetDirectoryName(htmlPath), item.Value["folder"].ToString(), item.Value["value"].ToString());
+                                var filePath = Path.Combine(Path.GetDirectoryName(startArgs.Url), item.Value["folder"].ToString(), item.Value["value"].ToString());
                                 if (File.Exists(filePath))
                                 {
                                     chromeBrowser.ExecuteScriptAsync("livelyPropertyListener",
@@ -609,7 +570,7 @@ namespace Lively.PlayerCefSharp
         private void ChromeBrowser_LoadError(object sender, LoadErrorEventArgs e)
         {
             Debug.WriteLine("Error Loading Page:-" + e.ErrorText);  //ERR_BLOCKED_BY_RESPONSE, likely missing audio/video codec error for youtube.com?
-            if (linkType == LinkType.local || e.ErrorCode == CefErrorCode.Aborted || e.ErrorCode == (CefErrorCode)(-27))//e.ErrorCode == CefErrorCode.NameNotResolved || e.ErrorCode == CefErrorCode.InternetDisconnected   || e.ErrorCode == CefErrorCode.NetworkAccessDenied || e.ErrorCode == CefErrorCode.NetworkIoSuspended)
+            if (startArgs.Type.Equals("local", StringComparison.OrdinalIgnoreCase) || e.ErrorCode == CefErrorCode.Aborted || e.ErrorCode == (CefErrorCode)(-27))//e.ErrorCode == CefErrorCode.NameNotResolved || e.ErrorCode == CefErrorCode.InternetDisconnected   || e.ErrorCode == CefErrorCode.NetworkAccessDenied || e.ErrorCode == CefErrorCode.NetworkIoSuspended)
             {
                 //ignoring some error's.
                 return;
@@ -617,7 +578,7 @@ namespace Lively.PlayerCefSharp
             chromeBrowser.LoadHtml(@"<head> <meta charset=""utf - 8""> <title>Error</title>  <style>
             * { line-height: 1.2; margin: 0; } html { display: table; font-family: sans-serif; height: 100%; text-align: center; width: 100%; } body { background-color: #252525; display:
             table-cell; vertical-align: middle; margin: 2em auto; } h1 { color: #e5e5e5; font-size: 2em; font-weight: 400; } p { color: #cccccc; margin: 0 auto; width: 280px; } .url{color: #e5e5e5; position: absolute; margin: 16px; right: 0; top: 0; } @media only
-            screen and (max-width: 280px) { body, p { width: 95%; } h1 { font-size: 1.5em; margin: 0 0 0.3em; } } </style></head><body><div class=""url"">" + originalUrl + "</div> <h1>Unable to load webpage :'(</h1> <p>" + e.ErrorText + "</p></body></html>");
+            screen and (max-width: 280px) { body, p { width: 95%; } h1 { font-size: 1.5em; margin: 0 0 0.3em; } } </style></head><body><div class=""url"">" + startArgs.Url + "</div> <h1>Unable to load webpage :'(</h1> <p>" + e.ErrorText + "</p></body></html>");
             //chromeBrowser.LoadHtml(@"<body style=""background-color:black;""><h1 style = ""color:white;"">Error Loading webpage:" + e.ErrorText + "</h1></body>");            
         }
 
@@ -671,7 +632,7 @@ namespace Lively.PlayerCefSharp
         /// <summary>
         /// Modified for passing array to js.
         /// </summary>
-        void ExecuteScriptAsync(ChromiumWebBrowser chromeBrowser, string methodName, float[] args)
+        void ExecuteScriptAsync(ChromiumWebBrowser chromeBrowser, string methodName, double[] args)
         {
             var stringBuilder = new StringBuilder();
             stringBuilder.Append(methodName);

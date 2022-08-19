@@ -38,7 +38,7 @@ namespace Lively.PlayerCefSharp
         [Option("audio",
         Default = false,
         HelpText = "Analyse system audio(visualiser data.)")]
-        public bool AudioAnalyse { get; set; }
+        public bool AudioVisualizer { get; set; }
 
         [Option("debug",
         Required = false,
@@ -61,6 +61,11 @@ namespace Lively.PlayerCefSharp
         Required = false,
         HelpText = "Lively hw monitor api")]
         public bool SysInfo { get; set; }
+
+        [Option("pause-event",
+        Required = false,
+        HelpText = "Wallpaper playback changed notify")]
+        public bool PauseEvent { get; set; }
 
         [Option("verbose-log",
         Required = false,

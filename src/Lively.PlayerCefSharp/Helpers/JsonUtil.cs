@@ -1,18 +1,31 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.IO;
 
 namespace Lively.PlayerCefSharp.Helpers
 {
-    public static class JsonUtil
+    public class JsonUtil
     {
         public static void Write(string path, JObject rss)
         {
             File.WriteAllText(path, rss.ToString());
         }
 
-        public static JObject Read(string path)
+        public static JObject ReadJObject(string path)
         {
-            return JObject.Parse(File.ReadAllText(path));
+            var json = File.ReadAllText(path);
+            return JObject.Parse(json);
+        }
+
+        public static JToken ReadJToken(string path)
+        {
+            var json = File.ReadAllText(path);
+            return JToken.Parse(json);
+        }
+
+        public static string Serialize(object obj)
+        {
+            return JsonConvert.SerializeObject(obj);
         }
     }
 }
