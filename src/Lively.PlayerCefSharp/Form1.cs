@@ -17,6 +17,7 @@ using System.Text;
 using Lively.PlayerCefSharp.Services;
 using Lively.PlayerCefSharp.API;
 using Lively.PlayerCefSharp.Helpers;
+using System.Linq;
 
 namespace Lively.PlayerCefSharp
 {
@@ -30,17 +31,13 @@ namespace Lively.PlayerCefSharp
             yt,
             online,
             local,
-            standalone
         }
 
-        //private string livelyPropertyPath;
-        //private JObject livelyPropertyData;
         private bool isPaused = false;
         private readonly IHardwareUsageService sysMonitor;
         private readonly IAudioVisualizerService sysAudio;
         private ChromiumWebBrowser chromeBrowser;
-
-        private readonly StartArgs startArgs;
+        private StartArgs startArgs;
 
         public Form1()
         {
@@ -53,17 +50,16 @@ namespace Lively.PlayerCefSharp
                 //online or local(file)
                 Type = "local",
                 // LivelyProperties.json path if any
-                Properties = null,
+                Properties = @"",
                 SysInfo = false,
                 //NowPlaying = false,
-                AudioVisualizer = true,
+                AudioVisualizer = false,
             };
 
                 this.FormBorderStyle = FormBorderStyle.Sizable;
                 this.WindowState = FormWindowState.Normal;
                 this.StartPosition = FormStartPosition.Manual;
                 this.Size = new Size(1920, 1080);
-                //this.SizeGripStyle = SizeGripStyle.Show;
                 this.ShowInTaskbar = true;
                 this.MaximizeBox = true;
                 this.MinimizeBox = true;
@@ -105,8 +101,7 @@ namespace Lively.PlayerCefSharp
 
                             if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                             {
-                                //chromeBrowser.ExecuteScriptAsync("livelyAudioListener", e);
-                                ExecuteScriptAsync(chromeBrowser, "livelyAudioListener", e);
+                                ExecuteScriptFunctionAsync("livelyAudioListener", e);
                             }
                         }
                         catch (Exception)
@@ -149,6 +144,11 @@ namespace Lively.PlayerCefSharp
 
         private void HandleParseError(IEnumerable<Error> errs)
         {
+            WriteToParent(new LivelyMessageConsole()
+            {
+                Category = ConsoleMessageType.error,
+                Message = $"Error parsing cmdline args: {errs.First()}",
+            });
             if (Application.MessageLoop)
                 Application.Exit();
             else
@@ -220,7 +220,7 @@ namespace Lively.PlayerCefSharp
                                         var scr = (LivelyScreenshotCmd)obj;
                                         try
                                         {
-                                            await CaptureScreenshot(chromeBrowser, scr.FilePath, scr.Format);
+                                            await CaptureScreenshot(scr.FilePath, scr.Format);
                                         }
                                         catch (Exception ie)
                                         {
@@ -454,15 +454,6 @@ namespace Lively.PlayerCefSharp
                         chromeBrowser = new ChromiumWebBrowser(path);
                     }
                     break;
-                case PageType.standalone:
-                    {
-                        Cef.Initialize(settings);
-                        chromeBrowser = new ChromiumWebBrowser(path)
-                        {
-                            DownloadHandler = new DownloadHandler()
-                        };
-                    }
-                    break;
             }
 
             //cef right click contextmenu disable.
@@ -586,8 +577,11 @@ namespace Lively.PlayerCefSharp
 
         #region helpers
 
-        public async Task CaptureScreenshot(ChromiumWebBrowser chromeBrowser, string filePath, ScreenshotFormat format)
+        private async Task CaptureScreenshot(string filePath, ScreenshotFormat format)
         {
+            if (chromeBrowser is null)
+                return;
+
             CefSharp.DevTools.DevToolsExtensions.CaptureFormat captureFormat = CefSharp.DevTools.DevToolsExtensions.CaptureFormat.png;
             switch (format)
             {
@@ -628,29 +622,21 @@ namespace Lively.PlayerCefSharp
             }
         }
 
-        //original ref: https://github.com/cefsharp/CefSharp/pull/1372/files
-        /// <summary>
-        /// Modified for passing array to js.
-        /// </summary>
-        void ExecuteScriptAsync(ChromiumWebBrowser chromeBrowser, string methodName, double[] args)
+        private void ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
         {
-            var stringBuilder = new StringBuilder();
-            stringBuilder.Append(methodName);
-            stringBuilder.Append("([");
-
-            for (int i = 0; i < args.Length; i++)
+            var script = new StringBuilder();
+            script.Append(functionName);
+            script.Append("(");
+            for (int i = 0; i < parameters.Length; i++)
             {
-                stringBuilder.Append(args[i]);
-                stringBuilder.Append(",");
+                script.Append(JsonConvert.SerializeObject(parameters[i]));
+                if (i < parameters.Length - 1)
+                {
+                    script.Append(", ");
+                }
             }
-
-            //Remove the trailing comma
-            stringBuilder.Remove(stringBuilder.Length - 2, 2);
-
-            stringBuilder.Append("]);");
-            var script = stringBuilder.ToString();
-
-            chromeBrowser.ExecuteScriptAsync(script);
+            script.Append(");");
+            chromeBrowser?.ExecuteScriptAsync(script.ToString());
         }
 
         #endregion //helpers

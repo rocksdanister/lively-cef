@@ -27,10 +27,6 @@ namespace Lively.PlayerCefSharp
             }
             catch { }
 
-            //cscore is culture sensitive?, fix?
-            CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
-            CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
