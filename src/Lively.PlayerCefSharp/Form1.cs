@@ -56,13 +56,13 @@ namespace Lively.PlayerCefSharp
                 AudioVisualizer = false,
             };
 
-                this.FormBorderStyle = FormBorderStyle.Sizable;
-                this.WindowState = FormWindowState.Normal;
-                this.StartPosition = FormStartPosition.Manual;
-                this.Size = new Size(1920, 1080);
-                this.ShowInTaskbar = true;
-                this.MaximizeBox = true;
-                this.MinimizeBox = true;
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.WindowState = FormWindowState.Normal;
+            this.StartPosition = FormStartPosition.Manual;
+            this.Size = new Size(1920, 1080);
+            this.ShowInTaskbar = true;
+            this.MaximizeBox = true;
+            this.MinimizeBox = true;
 #endif
 
 #if DEBUG != true
