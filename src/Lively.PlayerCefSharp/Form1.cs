@@ -52,7 +52,7 @@ namespace Lively.PlayerCefSharp
                 // LivelyProperties.json path if any
                 Properties = @"",
                 SysInfo = false,
-                //NowPlaying = false,
+                NowPlaying = false,
                 AudioVisualizer = false,
             };
 
@@ -107,6 +107,28 @@ namespace Lively.PlayerCefSharp
                         catch (Exception)
                         {
                             //TODO
+                        }
+                    };
+                }
+
+                if (startArgs.NowPlaying)
+                {
+                    var nowPlayingService = new NowPlayingService();
+                    nowPlayingService.NowPlayingTrackChanged += (s, e) => {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                ExecuteScriptFunctionAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            //TODO
+
                         }
                     };
                 }

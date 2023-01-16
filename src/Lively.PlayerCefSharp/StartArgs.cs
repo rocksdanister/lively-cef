@@ -62,6 +62,11 @@ namespace Lively.PlayerCefSharp
         HelpText = "Lively hw monitor api")]
         public bool SysInfo { get; set; }
 
+        [Option("system-nowplaying",
+        Default = false,
+        Required = false)]
+        public bool NowPlaying { get; set; }
+
         [Option("pause-event",
         Required = false,
         HelpText = "Wallpaper playback changed notify")]
