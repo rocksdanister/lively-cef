@@ -34,8 +34,9 @@ namespace Lively.PlayerCefSharp
         }
 
         private bool isPaused = false;
-        private readonly IHardwareUsageService sysMonitor;
-        private readonly IAudioVisualizerService sysAudio;
+        private bool initializedServices = false; //delay API init till browser start
+        private IHardwareUsageService sysMonitor;
+        private IAudioVisualizerService sysAudio;
         private ChromiumWebBrowser chromeBrowser;
         private StartArgs startArgs;
 
@@ -88,73 +89,6 @@ namespace Lively.PlayerCefSharp
             {
                 //CEF init
                 InitializeCefSharp();
-
-                if (startArgs.AudioVisualizer)
-                {
-                    sysAudio = new AudioVisualizerService();
-                    sysAudio.AudioDataAvailable += (s, e) => 
-                    {
-                        try
-                        {
-                            if (isPaused)
-                                return;
-
-                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                            {
-                                ExecuteScriptFunctionAsync("livelyAudioListener", e);
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            //TODO
-                        }
-                    };
-                }
-
-                if (startArgs.NowPlaying)
-                {
-                    var nowPlayingService = new NowPlayingService();
-                    nowPlayingService.NowPlayingTrackChanged += (s, e) => {
-                        try
-                        {
-                            if (isPaused)
-                                return;
-
-                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                            {
-                                ExecuteScriptFunctionAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            //TODO
-
-                        }
-                    };
-                }
-
-                if (startArgs.SysInfo)
-                {
-                    sysMonitor = new PerfCounterUsageService();
-                    sysMonitor.HWMonitor += (s, e) => 
-                    {
-                        try
-                        {
-                            if (isPaused)
-                                return;
-
-                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
-                            {
-                                chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
-                            }
-                        }
-                        catch
-                        {
-                            //TODO
-                        }
-                    };
-                    sysMonitor.Start();
-                }
             }
             finally
             {
@@ -361,6 +295,7 @@ namespace Lively.PlayerCefSharp
         {
             sysAudio?.Dispose();
             sysMonitor?.Stop();
+            //nowPlayingService?.Stop();
             chromeBrowser?.Dispose();
             Cef.Shutdown();
         }
@@ -498,7 +433,7 @@ namespace Lively.PlayerCefSharp
             WriteToParent(new LivelyMessageConsole()
             {
                 Category = ConsoleMessageType.console,
-                Message = e.Message
+                Message =$"{e.Message}, source: {e.Source} ({e.Line})",
             });
         }
 
@@ -516,6 +451,77 @@ namespace Lively.PlayerCefSharp
 
             RestoreLivelyProperties(startArgs.Properties);
             WriteToParent(new LivelyMessageWallpaperLoaded() { Success = true });
+
+            if (!initializedServices)
+            {
+                initializedServices = true;
+                if (startArgs.AudioVisualizer)
+                {
+                    sysAudio = new AudioVisualizerService();
+                    sysAudio.AudioDataAvailable += (s, e) =>
+                    {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                ExecuteScriptFunctionAsync("livelyAudioListener", e);
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            //TODO
+                        }
+                    };
+                }
+
+                if (startArgs.NowPlaying)
+                {
+                    var nowPlayingService = new NowPlayingService();
+                    nowPlayingService.NowPlayingTrackChanged += (s, e) => {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                ExecuteScriptFunctionAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            //TODO
+
+                        }
+                    };
+                }
+
+                if (startArgs.SysInfo)
+                {
+                    sysMonitor = new PerfCounterUsageService();
+                    sysMonitor.HWMonitor += (s, e) =>
+                    {
+                        try
+                        {
+                            if (isPaused)
+                                return;
+
+                            if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
+                            {
+                                chromeBrowser.ExecuteScriptAsync("livelySystemInformation", JsonConvert.SerializeObject(e, Formatting.Indented));
+                            }
+                        }
+                        catch
+                        {
+                            //TODO
+                        }
+                    };
+                    sysMonitor.Start();
+                }
+            }
         }
 
         private void RestoreLivelyProperties(string path)
