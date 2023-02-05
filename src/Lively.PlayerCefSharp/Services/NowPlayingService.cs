@@ -19,13 +19,24 @@ namespace Lively.PlayerCefSharp.Services
         private static readonly bool isWindows11_OrGreater = Environment.OSVersion.Version.Build >= 22000;
         public event EventHandler<NowPlayingModel> NowPlayingTrackChanged;
         private readonly NowPlayingModel model = new NowPlayingModel();
-        private readonly Timer _timer; //to avoid GC
+        private readonly DispatcherTimer _timer; //to avoid GC
 
         public NowPlayingService()
         {
             //There is a MediaPropertiesChanged bug where the event will stop firing after sometime, so using timer instead.
-            _timer = new Timer(async (obj) => NowPlayingTrackChanged?.Invoke(this, await GetCurrentTrackInfo()), null, 0, 500);
+            _timer = new DispatcherTimer
+            {
+                Interval = new TimeSpan(0, 0, 0, 0, 500),
+            };
+            _timer.Tick += async (s, e) =>
+            {
+                NowPlayingTrackChanged?.Invoke(this, await GetCurrentTrackInfo());
+            };
         }
+
+        public void Start() => _timer?.Start();
+
+        public void Stop() => _timer?.Stop();
 
         private async Task<NowPlayingModel> GetCurrentTrackInfo()
         {
@@ -38,7 +49,7 @@ namespace Lively.PlayerCefSharp.Services
                     return null;
 
                 var media = await session.TryGetMediaPropertiesAsync();
-                if (media is null) 
+                if (media is null)
                     return null;
 
                 if (media.Title != model.Title && media.AlbumTitle != model.AlbumTitle)

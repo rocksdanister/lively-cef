@@ -34,11 +34,13 @@ namespace Lively.PlayerCefSharp
         }
 
         private bool isPaused = false;
-        private bool initializedServices = false; //delay API init till browser start
-        private IHardwareUsageService sysMonitor;
-        private IAudioVisualizerService sysAudio;
         private ChromiumWebBrowser chromeBrowser;
         private StartArgs startArgs;
+
+        private bool initializedServices = false; //delay API init till loaded page
+        private IHardwareUsageService hardwareUsageService;
+        private IAudioVisualizerService audioVisualizerService;
+        private INowPlayingService nowPlayingService;
 
         public Form1()
         {
@@ -293,9 +295,9 @@ namespace Lively.PlayerCefSharp
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            sysAudio?.Dispose();
-            sysMonitor?.Stop();
-            //nowPlayingService?.Stop();
+            audioVisualizerService?.Dispose();
+            hardwareUsageService?.Stop();
+            nowPlayingService?.Stop();
             chromeBrowser?.Dispose();
             Cef.Shutdown();
         }
@@ -457,8 +459,8 @@ namespace Lively.PlayerCefSharp
                 initializedServices = true;
                 if (startArgs.AudioVisualizer)
                 {
-                    sysAudio = new AudioVisualizerService();
-                    sysAudio.AudioDataAvailable += (s, e) =>
+                    audioVisualizerService = new AudioVisualizerService();
+                    audioVisualizerService.AudioDataAvailable += (s, e) =>
                     {
                         try
                         {
@@ -475,11 +477,12 @@ namespace Lively.PlayerCefSharp
                             //TODO
                         }
                     };
+                    audioVisualizerService.Start();
                 }
 
                 if (startArgs.NowPlaying)
                 {
-                    var nowPlayingService = new NowPlayingService();
+                    nowPlayingService = new NowPlayingService();
                     nowPlayingService.NowPlayingTrackChanged += (s, e) => {
                         try
                         {
@@ -497,12 +500,13 @@ namespace Lively.PlayerCefSharp
 
                         }
                     };
+                    nowPlayingService.Start();
                 }
 
                 if (startArgs.SysInfo)
                 {
-                    sysMonitor = new PerfCounterUsageService();
-                    sysMonitor.HWMonitor += (s, e) =>
+                    hardwareUsageService = new PerfCounterUsageService();
+                    hardwareUsageService.HWMonitor += (s, e) =>
                     {
                         try
                         {
@@ -519,7 +523,7 @@ namespace Lively.PlayerCefSharp
                             //TODO
                         }
                     };
-                    sysMonitor.Start();
+                    hardwareUsageService.Start();
                 }
             }
         }

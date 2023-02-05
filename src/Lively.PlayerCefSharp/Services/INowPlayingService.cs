@@ -9,6 +9,8 @@ namespace Lively.PlayerCefSharp.Services
     public interface INowPlayingService
     {
         event EventHandler<NowPlayingModel> NowPlayingTrackChanged;
+        void Start();
+        void Stop();
     }
 
     public class NowPlayingModel : EventArgs

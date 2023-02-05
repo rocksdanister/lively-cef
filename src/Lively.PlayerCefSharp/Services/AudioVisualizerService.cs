@@ -40,7 +40,6 @@ namespace Lively.PlayerCefSharp.Services
                     });
                 }
                 capture = CreateWasapiLoopbackCapture();
-                capture.StartRecording();
             }
             catch (Exception e)
             {
@@ -51,6 +50,10 @@ namespace Lively.PlayerCefSharp.Services
                 });
             }
         }
+
+        public void Start() => capture?.StartRecording();
+
+        public void Stop() => capture?.StopRecording();
 
         private WasapiLoopbackCapture CreateWasapiLoopbackCapture(MMDevice device = null)
         {
@@ -165,7 +168,7 @@ namespace Lively.PlayerCefSharp.Services
         public void Dispose()
         {
             deviceEnum?.UnregisterEndpointNotificationCallback(this);
-            capture?.StopRecording();
+            Stop();
             //Calling dispose outside hangs.
             //capture?.Dispose();
         }
