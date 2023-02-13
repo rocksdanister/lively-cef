@@ -482,7 +482,7 @@ namespace Lively.PlayerCefSharp
 
                 if (startArgs.NowPlaying)
                 {
-                    nowPlayingService = new NowPlayingService();
+                    nowPlayingService = new NpsmNowPlayingService();
                     nowPlayingService.NowPlayingTrackChanged += (s, e) => {
                         try
                         {

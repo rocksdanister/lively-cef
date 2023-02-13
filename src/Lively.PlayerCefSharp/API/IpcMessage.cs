@@ -157,7 +157,7 @@ namespace Lively.PlayerCefSharp.API
     [Serializable]
     public class LivelySystemNowPlaying : IpcMessage
     {
-        public Services.NowPlayingModel Info { get; set; }
+        public Services.NowPlayingEventArgs Info { get; set; }
         public LivelySystemNowPlaying() : base(MessageType.cmd_reload)
         {
         }
