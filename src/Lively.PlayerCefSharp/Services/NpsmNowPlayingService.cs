@@ -112,7 +112,7 @@ namespace Lively.PlayerCefSharp.Services
             {
                 lock (lockObject)
                 {
-                    model.Title = model.AlbumTitle = null;
+                    model.Title = model.AlbumTitle = model.Thumbnail = null;
                     NowPlayingTrackChanged?.Invoke(this, null);
                 }
             }

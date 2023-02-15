@@ -486,9 +486,6 @@ namespace Lively.PlayerCefSharp
                     nowPlayingService.NowPlayingTrackChanged += (s, e) => {
                         try
                         {
-                            if (isPaused)
-                                return;
-
                             if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                             {
                                 ExecuteScriptFunctionAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
