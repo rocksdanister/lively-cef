@@ -158,14 +158,27 @@ namespace Lively.PlayerCefSharp
                                     case MessageType.cmd_suspend:
                                         if (chromeBrowser.CanExecuteJavascriptInMainFrame && startArgs.PauseEvent && !isPaused) //if js context ready
                                         {
-                                            chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = true }), Formatting.Indented);
+                                            chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged",
+                                                JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = true }),
+                                                Formatting.Indented);
                                         }
                                         isPaused = true;
                                         break;
                                     case MessageType.cmd_resume:
-                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame && startArgs.PauseEvent && isPaused) //if js context ready
+                                        if (chromeBrowser.CanExecuteJavascriptInMainFrame && isPaused)
                                         {
-                                            chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged", JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = false }), Formatting.Indented);
+                                            if (startArgs.PauseEvent)
+                                            {
+                                                chromeBrowser.ExecuteScriptAsync("livelyWallpaperPlaybackChanged",
+                                                    JsonConvert.SerializeObject(new WallpaperPlaybackState() { IsPaused = false }),
+                                                    Formatting.Indented);
+                                            }
+
+                                            if (startArgs.NowPlaying)
+                                            {
+                                                //update media state
+                                                chromeBrowser.ExecuteScriptAsync("livelyCurrentTrack", JsonConvert.SerializeObject(nowPlayingService?.CurrentTrack, Formatting.Indented));
+                                            }
                                         }
                                         isPaused = false;
                                         break;
@@ -486,9 +499,12 @@ namespace Lively.PlayerCefSharp
                     nowPlayingService.NowPlayingTrackChanged += (s, e) => {
                         try
                         {
+                            if (isPaused)
+                                return;
+
                             if (chromeBrowser.CanExecuteJavascriptInMainFrame) //if js context ready
                             {
-                                ExecuteScriptFunctionAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
+                                chromeBrowser.ExecuteScriptAsync("livelyCurrentTrack", JsonConvert.SerializeObject(e, Formatting.Indented));
                             }
                         }
                         catch (Exception ex)
@@ -651,6 +667,11 @@ namespace Lively.PlayerCefSharp
             }
         }
 
+        /// <summary>
+        /// Supports arrays
+        /// </summary>
+        /// <param name="functionName"></param>
+        /// <param name="parameters"></param>
         private void ExecuteScriptFunctionAsync(string functionName, params object[] parameters)
         {
             var script = new StringBuilder();

@@ -25,6 +25,8 @@ namespace Lively.PlayerCefSharp.Services
 
         public NpsmNowPlayingService() { }
 
+        public NowPlayingEventArgs CurrentTrack => model;
+
         public void Start()
         {
             manager.SessionListChanged += SessionListChanged;
