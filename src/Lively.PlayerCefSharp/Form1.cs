@@ -73,7 +73,7 @@ namespace Lively.PlayerCefSharp
                 .WithParsed((x) => startArgs = x)
                 .WithNotParsed(HandleParseError);
 
-            this.WindowState = FormWindowState.Normal;
+            this.WindowState = FormWindowState.Minimized;
             this.StartPosition = FormStartPosition.Manual;
             this.Location = new Point(-9999, 0);
 
